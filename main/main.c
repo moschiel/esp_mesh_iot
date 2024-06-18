@@ -6,7 +6,6 @@
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 #include "wifi.h"
-#include "web_server.h"
 
 //for printing chip info
 #include <stdio.h>
@@ -17,12 +16,11 @@
 
 // Pino do LED
 #define LED_PIN 2
-// Pino do Botao para iniciar o modo ponto de acesso do wifi (AP)
-#define BUTTON_AP_MODE_PIN 5
+// Pino do Botao para trocar o modo do wifi entre ponto de acesso do wifi (AP) e estação (STA)
+#define BUTTON_WIFI_MODE_PIN 5
 #define HOLD_TIME_MS 5000
 
-static const char *TAG = "main";
-static bool ap_mode = false;
+static const char *TAG = "MAIN";
 
 void print_chip_info(void) {
     /* Print chip information */
@@ -57,53 +55,66 @@ static void blink_led_task(void *arg) {
     while (true) {
         gpio_set_level(LED_PIN, led_state);
 
-        if(ap_mode) {
+        if(wifi_ap_mode_active()) {
 			led_state = !led_state;
-            // Pisca o LED a cada 1 segundo
+            // Pisca o LED a cada 1 segundo se estiver no modo AP
             vTaskDelay(pdMS_TO_TICKS(1000));
         } else if (wifi_sta_connected()) {
+            // Mantem o LED ligado se estiver no modo STA
             led_state = true;
             vTaskDelay(pdMS_TO_TICKS(1000));
         } else {
 			led_state = !led_state;
-            // Pisca o LED 10 vezes por segundo
+            // Pisca o LED 10 vezes por segundo se estiver desconectado
             vTaskDelay(pdMS_TO_TICKS(100));
         }
     }
 }
 
-// Tarefa para verificar se o botão que habilita o WiFi como ponto de acesso foi pressionado por 5 segundos
-static void check_button_ap_mode_task(void *arg) {
-    uint32_t press_start_time = 0;
+// Tarefa para verificar botoes
+static void check_button_task(void *arg) {
+    static uint32_t press_start_time = 0;
+    static bool reach_hold_time = false;
 
-    while (true) {
-		if(ap_mode == false) {			
-	        if (gpio_get_level(BUTTON_AP_MODE_PIN) == 0) { //se pressionado
-	            if (press_start_time == 0) {
-	                press_start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
-	            } else if ((xTaskGetTickCount() * portTICK_PERIOD_MS - press_start_time) >= HOLD_TIME_MS) {
-				    // Inicia o modo AP e WebServer
-	                ap_mode = true;
-				    wifi_init_softap();
-				    start_webserver();
-	                break;
-	            }
-	        } else {
-	            press_start_time = 0;
-	        }
-		}
+    while (true) {		
+
+        //Verifica botao para trocar o modo do wifi entre ponto de acesso (AP) e estação (STA)
+        if (gpio_get_level(BUTTON_WIFI_MODE_PIN) == 0) { //se pressionado
+            if(reach_hold_time == false) {
+                if (press_start_time == 0) {
+                    press_start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                } else if ((xTaskGetTickCount() * portTICK_PERIOD_MS - press_start_time) >= HOLD_TIME_MS) {
+                    //Ja segurou o botao por tempo suficiente,
+                    //para o wifi, assim a task blink_led_task vai fazer o led piscar rapido, indicando que ja podemos soltar o botao.
+                    wifi_stop(); 
+                    reach_hold_time = true;
+                }
+            }
+        } else {
+            press_start_time = 0;
+
+            if(reach_hold_time) {
+                //Solicitado troca do modo WiFi
+                reach_hold_time = false;
+                if(nvs_wifi_get_mode() == WIFI_MODE_AP)
+                    nsv_wifi_set_mode(WIFI_MODE_STA, false);
+                else 
+                    nsv_wifi_set_mode(WIFI_MODE_AP, false);
+                
+            }
+        }
 
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-
 }
 
 // Função principal do aplicativo
 void app_main(void) {
-	ESP_LOGI(TAG, "firmware version: 1");
+	ESP_LOGI(TAG, "app version: 2");
 	
 	print_chip_info();
 	
+    //nvs_flash_erase();
     // Inicializa o armazenamento não volátil (NVS)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -116,15 +127,21 @@ void app_main(void) {
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
 
     // Configura o pino do botão como entrada
-    gpio_set_direction(BUTTON_AP_MODE_PIN, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(BUTTON_AP_MODE_PIN, GPIO_PULLUP_ONLY);
-    gpio_set_intr_type(BUTTON_AP_MODE_PIN, GPIO_INTR_ANYEDGE);
+    gpio_set_direction(BUTTON_WIFI_MODE_PIN, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(BUTTON_WIFI_MODE_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(BUTTON_WIFI_MODE_PIN, GPIO_INTR_ANYEDGE);
 
-    // Tenta Inicializar o Wi-Fi em modo estação
-    wifi_init_sta();
+    if(nvs_wifi_get_mode() == WIFI_MODE_STA) {
+        // Tenta Inicializar o Wi-Fi em modo estação
+        wifi_init_sta();
+    }
+    else { 
+        // Inicializa WiFi como Ponto de Acesso e sobe Webserver
+        wifi_init_softap();
+    }
 
     // Cria a tarefa para piscar o LED
-    xTaskCreate(blink_led_task, "blink_led_task", 512, NULL, 5, NULL);
-    // Cria a tarefa para checar se o botao que ativa o modo AP
-    xTaskCreate(check_button_ap_mode_task, "check_button_ap_mode_task", 4096, NULL, 5, NULL);
+    xTaskCreate(blink_led_task, "blink_led_task", 2048, NULL, 5, NULL);
+    // Cria a tarefa para checar botoes
+    xTaskCreate(check_button_task, "check_button_task", 4096, NULL, 5, NULL);
 }

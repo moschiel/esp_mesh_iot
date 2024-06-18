@@ -5,11 +5,13 @@
 #include "esp_wifi.h"
 
 bool wifi_init_sta(void);
-void wifi_stop_sta(void);
-bool wifi_sta_connected(void);
+void wifi_stop(void);
 void wifi_init_softap(void);
-esp_err_t wifi_set_credentials(const char *ssid, const char *password);
-esp_err_t wifi_get_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len);
-
+bool wifi_sta_connected(void);
+bool wifi_ap_mode_active(void);
+esp_err_t nsv_wifi_set_credentials(const char *ssid, const char *password);
+esp_err_t nsv_wifi_get_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len);
+void nsv_wifi_set_mode(int mode, bool restart_esp);
+int nvs_wifi_get_mode(void);
 
 #endif /* WIFI_H_ */
