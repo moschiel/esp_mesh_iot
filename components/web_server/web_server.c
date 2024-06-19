@@ -10,7 +10,7 @@
 #endif
 
 static const char *TAG = "WEB_SERVER";
-httpd_handle_t webserver_handle;
+httpd_handle_t webserver_handle = NULL;
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
@@ -68,7 +68,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         ssid = strtok(NULL, "=");
         password = strtok(password, "=");
         password = strtok(NULL, "=");
-        nsv_wifi_set_credentials(ssid, password);
+        nvs_wifi_set_credentials(ssid, password);
         
 	    const char *response = "<!DOCTYPE html>"
            "<html>"
@@ -90,7 +90,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(1000)); //da tempo pra enviar o retorno http
 
-        nsv_wifi_set_mode(WIFI_MODE_STA, false);
+        nvs_wifi_set_mode(WIFI_MODE_STA, false);
     } else {
         httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
     }
@@ -115,6 +115,8 @@ static const httpd_uri_t set_wifi = {
 
 // Inicia o servidor web
 void start_webserver(void) {
+    stop_webserver();
+    
     ESP_LOGI(TAG, "Iniciando WebServer");
     
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -124,7 +126,6 @@ void start_webserver(void) {
     //config.recv_wait_timeout = 10;  // Ajusta o tempo de espera para receber (em segundos)
     //config.send_wait_timeout = 10;  // Ajusta o tempo de espera para enviar (em segundos)
 
-    stop_webserver();
 
     if (httpd_start(&webserver_handle, &config) == ESP_OK) {
         httpd_register_uri_handler(webserver_handle, &root);

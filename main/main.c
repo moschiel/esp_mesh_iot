@@ -26,7 +26,11 @@ void print_chip_info(void) {
     /* Print chip information */
     esp_chip_info_t chip_info;
     uint32_t flash_size;
+    uint8_t mac[6];
+
     esp_chip_info(&chip_info);
+    wifi_get_mac(mac);
+
     printf("This is %s chip with %d CPU core(s), %s%s%s%s, ",
            CONFIG_IDF_TARGET,
            chip_info.cores,
@@ -38,6 +42,7 @@ void print_chip_info(void) {
     unsigned major_rev = chip_info.revision / 100;
     unsigned minor_rev = chip_info.revision % 100;
     printf("silicon revision v%d.%d, ", major_rev, minor_rev);
+    
     if(esp_flash_get_size(NULL, &flash_size) != ESP_OK) {
         printf("Get flash size failed");
         return;
@@ -47,7 +52,10 @@ void print_chip_info(void) {
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
+
+    printf("MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
+
 
 // Tarefa para piscar o LED
 static void blink_led_task(void *arg) {
@@ -85,7 +93,7 @@ static void check_button_task(void *arg) {
                     press_start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
                 } else if ((xTaskGetTickCount() * portTICK_PERIOD_MS - press_start_time) >= HOLD_TIME_MS) {
                     //Ja segurou o botao por tempo suficiente,
-                    //para o wifi, assim a task blink_led_task vai fazer o led piscar rapido, indicando que ja podemos soltar o botao.
+                    //para o wifi, assim a task blink_led_task vai fazer o led piscar 10x por segundo, indicando que wifi parou, e ja podemos soltar o botao.
                     wifi_stop(); 
                     reach_hold_time = true;
                 }
@@ -97,9 +105,9 @@ static void check_button_task(void *arg) {
                 //Solicitado troca do modo WiFi
                 reach_hold_time = false;
                 if(nvs_wifi_get_mode() == WIFI_MODE_AP)
-                    nsv_wifi_set_mode(WIFI_MODE_STA, false);
+                    nvs_wifi_set_mode(WIFI_MODE_STA, false);
                 else 
-                    nsv_wifi_set_mode(WIFI_MODE_AP, false);
+                    nvs_wifi_set_mode(WIFI_MODE_AP, false);
                 
             }
         }

@@ -9,6 +9,8 @@
 #include "nvs.h"
 #include <string.h>
 #include "web_server.h"
+#include "esp_system.h"
+#include "esp_mac.h"
 
 #define WIFI_NAMESPACE "wifi_config"  // Namespace para armazenar as configurações Wi-Fi (STA) na NVS
 #define WIFI_SSID_KEY "ssid"  // Chave para o SSID na NVS
@@ -35,6 +37,8 @@ wifi_config_t wifi_sta_config = {
 
 // Inicialização do Wi-Fi em modo estação (STA / cliente)
 bool wifi_init_sta(void) {
+    wifi_stop();
+
 	is_sta_mode = true;
 	
 	ESP_LOGI(TAG, "Iniciando WiFi como estacao");
@@ -57,11 +61,11 @@ bool wifi_init_sta(void) {
     esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, &instance_got_ip);
 
     // Get credentials from NVS
-    esp_err_t err = nsv_wifi_get_credentials(ssid, sizeof(ssid), password, sizeof(password));
+    esp_err_t err = nvs_wifi_get_credentials(ssid, sizeof(ssid), password, sizeof(password));
     if(err != ESP_OK)
     {
         ESP_LOGE(TAG, "Fail to get Wifi Credentials from NVS, going back to AP mode");
-        nsv_wifi_set_mode(WIFI_MODE_AP, false);
+        nvs_wifi_set_mode(WIFI_MODE_AP, false);
      	return false;
     }
     // Popula Configurações do Wi-Fi
@@ -79,9 +83,9 @@ bool wifi_init_sta(void) {
 
 // Inicialização do Wi-Fi em modo ponto de acesso (AP) e inicia WebServer
 void wifi_init_softap(void) {
-	wifi_stop();
-	
-	ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
+    wifi_stop();
+
+    ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
     esp_netif_init();
     esp_event_loop_create_default();
     ap_netif = esp_netif_create_default_wifi_ap();
@@ -89,15 +93,27 @@ void wifi_init_softap(void) {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&cfg);
 
+    // Obtém o endereço MAC
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
+    // Cria o SSID único
+    char unique_ssid[32];
+    snprintf(unique_ssid, sizeof(unique_ssid), "ESP32_Config_%02X%02X%02X", mac[3], mac[4], mac[5]);
+
     wifi_config_t wifi_ap_config = {
         .ap = {
-            .ssid = "ESP32_Config",
-            .ssid_len = strlen("ESP32_Config"),
+            .ssid = "",
+            .ssid_len = 0,
             .password = "esp32config",
             .max_connection = 4,
             .authmode = WIFI_AUTH_WPA_WPA2_PSK,
         },
     };
+
+    strncpy((char *)wifi_ap_config.ap.ssid, unique_ssid, sizeof(wifi_ap_config.ap.ssid));
+    wifi_ap_config.ap.ssid_len = strlen(unique_ssid);
+
     esp_wifi_set_mode(WIFI_MODE_AP);
     esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config);
     esp_wifi_start();
@@ -109,8 +125,6 @@ void wifi_init_softap(void) {
 void wifi_stop(void) {
     is_sta_mode = false;
     sta_connected = false;
-
-    stop_webserver();
 
     esp_wifi_stop();
     esp_wifi_deinit();
@@ -129,7 +143,7 @@ void wifi_stop(void) {
 }
 
 //Salva na NVS o ssid e password do roteador WiFi
-esp_err_t nsv_wifi_set_credentials(const char *ssid, const char *password) {
+esp_err_t nvs_wifi_set_credentials(const char *ssid, const char *password) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
@@ -145,7 +159,7 @@ esp_err_t nsv_wifi_set_credentials(const char *ssid, const char *password) {
 }
 
 //Obtem da NVS o ssid e password do roteador WiFi para se conectar
-esp_err_t nsv_wifi_get_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len) {
+esp_err_t nvs_wifi_get_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READONLY, &nvs_handle);
     if (err != ESP_OK) {
@@ -159,7 +173,7 @@ esp_err_t nsv_wifi_get_credentials(char *ssid, size_t ssid_len, char *password, 
     return err;
 }
 
-void nsv_wifi_set_mode(int mode, bool restart_esp) {
+void nvs_wifi_set_mode(int mode, bool restart_esp) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
@@ -175,8 +189,8 @@ void nsv_wifi_set_mode(int mode, bool restart_esp) {
         ESP_LOGI(TAG, "Reiniciando ...");
         vTaskDelay(pdMS_TO_TICKS(1000));
         esp_restart();
-    } 
-    else {
+    } else {
+        //se não é pra reiniciar ESP, então ja altera o modo WiFi sem resetar a ESP
         if(mode == WIFI_MODE_STA) {
             //Inicializa WiFi como estacao
             wifi_init_sta();
@@ -230,4 +244,8 @@ bool wifi_ap_mode_active(void) {
 	if(esp_wifi_get_mode(&mode) != ESP_OK) return false;
 
     return mode == WIFI_MODE_AP;
+}
+
+esp_err_t wifi_get_mac(uint8_t *mac) {
+    return esp_read_mac(mac, ESP_MAC_WIFI_STA);
 }
