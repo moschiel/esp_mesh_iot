@@ -1,5 +1,5 @@
 #include "web_server.h"
-#include "wifi.h"
+#include "wifi_config.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <string.h>
@@ -90,7 +90,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(1000)); //da tempo pra enviar o retorno http
 
-        nvs_wifi_set_mode(WIFI_MODE_STA, false);
+        nvs_wifi_set_mode(WIFI_MODE_STA);
     } else {
         httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
     }
