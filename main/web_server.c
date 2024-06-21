@@ -1,8 +1,9 @@
-#include "web_server.h"
-#include "wifi_config.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <string.h>
+
+#include "web_server.h"
+#include "app_config.h"
 
 // Define a macro MIN se não estiver definida
 #ifndef MIN
@@ -68,7 +69,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         ssid = strtok(NULL, "=");
         password = strtok(password, "=");
         password = strtok(NULL, "=");
-        nvs_wifi_set_credentials(ssid, password);
+        nvs_set_wifi_credentials(ssid, password);
         
 	    const char *response = "<!DOCTYPE html>"
            "<html>"
@@ -90,7 +91,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(1000)); //da tempo pra enviar o retorno http
 
-        nvs_wifi_set_mode(WIFI_MODE_STA);
+        nvs_app_set_mode(APP_MODE_WIFI_STA);
     } else {
         httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
     }

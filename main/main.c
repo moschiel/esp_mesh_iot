@@ -6,13 +6,14 @@
 #include "sdkconfig.h"
 
 //custom libs
-#include "wifi_config.h"
+#include "app_config.h"
+#include "app_modes.h"
 #include "web_server.h"
 #include "utils.h"
 
 // Pino do LED
 #define LED_PIN 2
-// Pino do Botao para trocar o modo do wifi entre ponto de acesso do wifi (AP) e estação (STA)
+// Pino do Botao para trocar o modo da aplicacao
 #define BUTTON_WIFI_MODE_PIN 5
 #define HOLD_TIME_MS 5000
 
@@ -46,7 +47,7 @@ static void blink_led_task(void *arg) {
 }
 
 // Tarefa para verificar botoes
-static void check_button_task(void *arg) {
+static void check_buttons_task(void *arg) {
     static uint32_t press_start_time = 0;
 
     while (true) {		
@@ -68,10 +69,10 @@ static void check_button_task(void *arg) {
             if(press_hold_timeout) {
                 //Solicitado troca do modo WiFi
                 press_hold_timeout = false;
-                if(nvs_wifi_get_mode() == WIFI_MODE_AP)
-                    nvs_wifi_set_mode(WIFI_MODE_STA);
+                if(nvs_app_get_mode() == APP_MODE_WIFI_AP_WEB_SERVER)
+                    nvs_app_set_mode(APP_MODE_WIFI_STA);
                 else 
-                    nvs_wifi_set_mode(WIFI_MODE_AP);
+                    nvs_app_set_mode(APP_MODE_WIFI_AP_WEB_SERVER);
                 
             }
         }
@@ -92,28 +93,18 @@ void init_IOs() {
 
 // Função principal do aplicativo
 void app_main(void) {
-	ESP_LOGI(TAG, "App Version: 3");
+	//nvs_flash_erase();
+    
+    ESP_LOGI(TAG, "App Version: 3");
 	
 	print_chip_info();
-	
-    //nvs_flash_erase();
-
-    init_NVS();
 
     init_IOs();
 
-    if(nvs_wifi_get_mode() == WIFI_MODE_STA) {
-        // Tenta Inicializar o Wi-Fi em modo estação
-        wifi_init_sta();
-    }
-    else { 
-        // Inicializa WiFi como Ponto de Acesso e sobe Webserver
-        wifi_init_softap();
-        start_webserver();
-    }
+    init_app_mode();
 
     // Cria a tarefa para piscar o LED
     xTaskCreate(blink_led_task, "blink_led_task", 2048, NULL, 5, NULL);
     // Cria a tarefa para checar botoes
-    xTaskCreate(check_button_task, "check_button_task", 4096, NULL, 5, NULL);
+    xTaskCreate(check_buttons_task, "check_buttons_task", 4096, NULL, 5, NULL);
 }

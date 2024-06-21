@@ -1,4 +1,3 @@
-#include "wifi_config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -11,18 +10,16 @@
 #include "esp_system.h"
 #include "esp_mac.h"
 
-#define WIFI_NAMESPACE "wifi_config"  // Namespace para armazenar as configurações Wi-Fi (STA) na NVS
-#define WIFI_SSID_KEY "ssid"  // Chave para o SSID na NVS
-#define WIFI_PASS_KEY "password"  // Chave para a senha na NVS
-#define WIFI_MODE_KEY "mode" // Chave para a modo na NVS
-#define MAX_SSID_LEN 32  // Comprimento máximo do SSID
-#define MAX_PASS_LEN 64  // Comprimento máximo da senha
+#include "app_modes.h"
+#include "app_config.h"
+#include "web_server.h"
+
 
 static void sta_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
-static const char *TAG = "WIFI_CONFIG";
+static const char *TAG = "APP_MODES";
 
-// Configurações do Wi-Fi STA
+// Configurações do Wi-Fi em modo estação (STA)
 wifi_config_t wifi_sta_config = {
     .sta = {
         .ssid = "",
@@ -35,7 +32,7 @@ bool wifi_init_sta(void) {
 	ESP_LOGI(TAG, "Iniciando WiFi como estacao");
     char ssid[MAX_SSID_LEN];
     char password[MAX_PASS_LEN];
-	
+
     // Inicializa a pilha de rede
     esp_netif_init();
     esp_event_loop_create_default();
@@ -52,11 +49,11 @@ bool wifi_init_sta(void) {
     esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sta_event_handler, NULL, &instance_got_ip);
 
     // Get credentials from NVS
-    esp_err_t err = nvs_wifi_get_credentials(ssid, sizeof(ssid), password, sizeof(password));
+    esp_err_t err = nvs_get_wifi_credentials(ssid, sizeof(ssid), password, sizeof(password));
     if(err != ESP_OK)
     {
         ESP_LOGE(TAG, "Fail to get Wifi Credentials from NVS, going back to AP mode");
-        nvs_wifi_set_mode(WIFI_MODE_AP);
+        nvs_app_set_mode(APP_MODE_WIFI_AP_WEB_SERVER);
      	return false;
     }
     // Popula Configurações do Wi-Fi
@@ -85,13 +82,17 @@ static void sta_event_handler(void* arg, esp_event_base_t event_base, int32_t ev
     }
 }
 
-// Inicialização do Wi-Fi em modo ponto de acesso (AP) e inicia WebServer
+
+// Inicialização do Wi-Fi em modo ponto de acesso (AP) + WebServer
 void wifi_init_softap(void) {
     ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
+
+    // Inicializa a pilha de rede
     esp_netif_init();
     esp_event_loop_create_default();
     esp_netif_create_default_wifi_ap();
 
+    // Configurações padrão do Wi-Fi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&cfg);
 
@@ -116,95 +117,37 @@ void wifi_init_softap(void) {
     strncpy((char *)wifi_ap_config.ap.ssid, unique_ssid, sizeof(wifi_ap_config.ap.ssid));
     wifi_ap_config.ap.ssid_len = strlen(unique_ssid);
 
+    // Define o modo de operação do Wi-Fi e aplica as configurações
     esp_wifi_set_mode(WIFI_MODE_AP);
     esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config);
     esp_wifi_start();
 }
 
-//Salva na NVS o ssid e password do roteador WiFi
-esp_err_t nvs_wifi_set_credentials(const char *ssid, const char *password) {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        return err;
-    }
-    err = nvs_set_str(nvs_handle, WIFI_SSID_KEY, ssid);
-    if (err == ESP_OK) {
-        err = nvs_set_str(nvs_handle, WIFI_PASS_KEY, password);
-    }
-    nvs_commit(nvs_handle);
-    nvs_close(nvs_handle);
-    return err;
-}
+void init_app_mode(void) {
+    // Inicializa o armazenamento não volátil (NVS)
+    nvs_flash_init();
 
-//Obtem da NVS o ssid e password do roteador WiFi para se conectar
-esp_err_t nvs_wifi_get_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len) {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READONLY, &nvs_handle);
-    if (err != ESP_OK) {
-        return err;
-    }
-    err = nvs_get_str(nvs_handle, WIFI_SSID_KEY, ssid, &ssid_len);
-    if (err == ESP_OK) {
-        err = nvs_get_str(nvs_handle, WIFI_PASS_KEY, password, &password_len);
-    }
-    nvs_close(nvs_handle);
-    return err;
-}
+    APP_MODE_t app_mode = nvs_app_get_mode();
 
-void nvs_wifi_set_mode(int mode) {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        return;
-    }
-    err = nvs_set_i32(nvs_handle, WIFI_MODE_KEY, mode);
-    nvs_commit(nvs_handle);
-    nvs_close(nvs_handle);
-    
-    ESP_LOGI(TAG, "Solicitado troca do modo do WiFi para \"%s\"", mode == WIFI_MODE_STA ? "STA" : "AP");
+    switch(app_mode)
+    {
+        case APP_MODE_WIFI_AP_WEB_SERVER:
+        {
+            // Inicializa WiFi como Ponto de Acesso e sobe Webserver
+            wifi_init_softap();
+            start_webserver();
+        }
+        break;
+        case APP_MODE_WIFI_STA:
+        {
+            // Tenta Inicializar o Wi-Fi em modo estação
+            wifi_init_sta();
+        }
+        break;
+        case APP_MODE_WIFI_MESH_NETWORK:
+        {
 
-    ESP_LOGI(TAG, "Reiniciando ...");
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    esp_restart();
-    
-}
-
-int nvs_wifi_get_mode(void) {
-    nvs_handle_t nvs_handle;
-    int32_t mode = WIFI_MODE_AP;  // Default mode
-    esp_err_t err = nvs_open(WIFI_NAMESPACE, NVS_READONLY, &nvs_handle);
-    if (err == ESP_OK) {
-        nvs_get_i32(nvs_handle, WIFI_MODE_KEY, &mode);
-        nvs_close(nvs_handle);
-    }
-    return mode;
-}
-
-//Indica se esta como ponto de acesso
-bool wifi_ap_mode_active(void) {
-    wifi_mode_t mode;
-	if(esp_wifi_get_mode(&mode) != ESP_OK) return false;
-
-    return mode == WIFI_MODE_AP;
-}
-
-//Indica se esta como STA e conectado a um roteador
-bool is_wifi_sta_connected(void)
-{
-    wifi_mode_t mode;
-    esp_wifi_get_mode(&mode);
-    if (mode != WIFI_MODE_STA) {
-        ESP_LOGI(TAG, "WiFi is not in STA mode");
-        return false;
-    }
-
-    wifi_ap_record_t ap_info;
-    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
-        //ESP_LOGI(TAG, "WiFi is in STA mode and connected to AP");
-        return true;
-    } else {
-        //ESP_LOGI(TAG, "WiFi is in STA mode but not connected to AP");
-        return false;
+        }
+        break;
     }
 }
