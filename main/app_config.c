@@ -13,8 +13,8 @@
 #include "app_config.h"
 
 #define APP_NAMESPACE "app_config"  // Namespace para armazenar as configurações da aplicacao na NVS
-#define WIFI_SSID_KEY "wifi_ssid"  // Chave para o SSID do roteador WiFi na NVS
-#define WIFI_PASS_KEY "wifi_password"  // Chave para a senha do roteador WiFi na NVS
+#define WIFI_ROUTER_SSID_KEY "wifi_ssid"  // Chave para o SSID do roteador WiFi na NVS
+#define WIFI_ROUTER_PASS_KEY "wifi_password"  // Chave para a senha do roteador WiFi na NVS
 #define APP_MODE_KEY "app_mode" // Chave para a modo da aplicacao na NVS
 
 
@@ -27,9 +27,9 @@ esp_err_t nvs_set_wifi_credentials(const char *ssid, const char *password) {
     if (err != ESP_OK) {
         return err;
     }
-    err = nvs_set_str(nvs_handle, WIFI_SSID_KEY, ssid);
+    err = nvs_set_str(nvs_handle, WIFI_ROUTER_SSID_KEY, ssid);
     if (err == ESP_OK) {
-        err = nvs_set_str(nvs_handle, WIFI_PASS_KEY, password);
+        err = nvs_set_str(nvs_handle, WIFI_ROUTER_PASS_KEY, password);
     }
     nvs_commit(nvs_handle);
     nvs_close(nvs_handle);
@@ -43,9 +43,9 @@ esp_err_t nvs_get_wifi_credentials(char *ssid, size_t ssid_len, char *password, 
     if (err != ESP_OK) {
         return err;
     }
-    err = nvs_get_str(nvs_handle, WIFI_SSID_KEY, ssid, &ssid_len);
+    err = nvs_get_str(nvs_handle, WIFI_ROUTER_SSID_KEY, ssid, &ssid_len);
     if (err == ESP_OK) {
-        err = nvs_get_str(nvs_handle, WIFI_PASS_KEY, password, &password_len);
+        err = nvs_get_str(nvs_handle, WIFI_ROUTER_PASS_KEY, password, &password_len);
     }
     nvs_close(nvs_handle);
     return err;
