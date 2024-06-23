@@ -97,7 +97,7 @@ void init_IOs() {
 void app_main(void) {
 	//nvs_flash_erase();
     
-    ESP_LOGI(TAG, "App Version: 4");
+    ESP_LOGI(TAG, "App Version: 5");
 	
 	print_chip_info();
 

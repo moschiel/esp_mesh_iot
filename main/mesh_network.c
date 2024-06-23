@@ -49,7 +49,7 @@ static esp_netif_t *netif_sta = NULL;
 /*******************************************************
  *                Function Definitions
  *******************************************************/
-void esp_mesh_p2p_tx_main(void *arg)
+void mesh_p2p_tx_task(void *arg)
 {
     int i;
     esp_err_t err;
@@ -111,7 +111,7 @@ void esp_mesh_p2p_tx_main(void *arg)
     vTaskDelete(NULL);
 }
 
-void esp_mesh_p2p_rx_main(void *arg)
+void mesh_p2p_rx_task(void *arg)
 {
     int recv_count = 0;
     esp_err_t err;
@@ -154,8 +154,8 @@ esp_err_t esp_mesh_comm_p2p_start(void)
     static bool is_comm_p2p_started = false;
     if (!is_comm_p2p_started) {
         is_comm_p2p_started = true;
-        xTaskCreate(esp_mesh_p2p_tx_main, "MPTX", 3072, NULL, 5, NULL);
-        xTaskCreate(esp_mesh_p2p_rx_main, "MPRX", 3072, NULL, 5, NULL);
+        xTaskCreate(mesh_p2p_tx_task, "mesh_p2p_tx_task", 3072, NULL, 5, NULL);
+        xTaskCreate(mesh_p2p_rx_task, "mesh_p2p_rx_task", 3072, NULL, 5, NULL);
     }
     return ESP_OK;
 }
