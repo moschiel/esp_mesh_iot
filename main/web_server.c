@@ -2,6 +2,12 @@
 #include "esp_http_server.h"
 #include <string.h>
 
+#include "esp_log.h"
+#include "esp_wifi.h"
+#include "nvs_flash.h"
+#include "esp_system.h"
+#include "esp_mac.h"
+
 #include "web_server.h"
 #include "app_config.h"
 
@@ -91,7 +97,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(1000)); //da tempo pra enviar o retorno http
 
-        nvs_app_set_mode(APP_MODE_WIFI_STA);
+        nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
     } else {
         httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
     }
@@ -114,11 +120,56 @@ static const httpd_uri_t set_wifi = {
     .user_ctx  = NULL
 };
 
+// Inicialização do Wi-Fi em modo ponto de acesso (AP)
+static void wifi_init_softap(void) {
+    ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
+
+    // Inicializa o armazenamento não volátil (NVS)
+    nvs_flash_init();
+
+    // Inicializa a pilha de rede
+    esp_netif_init();
+    esp_event_loop_create_default();
+    esp_netif_create_default_wifi_ap();
+
+    // Configurações padrão do Wi-Fi
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+
+    // Obtém o endereço MAC
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
+    // Cria o SSID único
+    char unique_ssid[32];
+    snprintf(unique_ssid, sizeof(unique_ssid), "ESP32_Config_%02X%02X%02X", mac[3], mac[4], mac[5]);
+
+    wifi_config_t wifi_ap_config = {
+        .ap = {
+            .ssid = "",
+            .ssid_len = 0,
+            .password = "esp32config",
+            .max_connection = 4,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK,
+        },
+    };
+
+    strncpy((char *)wifi_ap_config.ap.ssid, unique_ssid, sizeof(wifi_ap_config.ap.ssid));
+    wifi_ap_config.ap.ssid_len = strlen(unique_ssid);
+
+    // Define o modo de operação do Wi-Fi e aplica as configurações
+    esp_wifi_set_mode(WIFI_MODE_AP);
+    esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config);
+    esp_wifi_start();
+}
+
 // Inicia o servidor web
 void start_webserver(void) {
     stop_webserver();
     
     ESP_LOGI(TAG, "Iniciando WebServer");
+
+    wifi_init_softap();
     
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     //config.max_uri_handlers = 8;  // Ajusta o número máximo de manipuladores de URI

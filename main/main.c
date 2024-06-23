@@ -4,12 +4,14 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "sdkconfig.h"
+#include "nvs_flash.h"
 
 //custom libs
 #include "app_config.h"
-#include "app_modes.h"
 #include "web_server.h"
 #include "utils.h"
+#include "mesh_network.h"
+
 
 // Pino do LED
 #define LED_PIN 2
@@ -30,11 +32,11 @@ static void blink_led_task(void *arg) {
 			led_state = !led_state;
             // Pisca o LED 5 vezes por segundo indicando ao usuario que ja pode soltar o botao
             vTaskDelay(pdMS_TO_TICKS(200));
-        } else if(wifi_ap_mode_active()) {
+        } else if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEB_SERVER) {
 			led_state = !led_state;
             // Pisca o LED a cada 1 segundo se estiver no modo AP
             vTaskDelay(pdMS_TO_TICKS(1000));
-        } else if (is_wifi_sta_connected()) {
+        } else if (nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK) {
             // Mantem o LED ligado se estiver no modo STA
             led_state = true;
             vTaskDelay(pdMS_TO_TICKS(1000));
@@ -69,10 +71,10 @@ static void check_buttons_task(void *arg) {
             if(press_hold_timeout) {
                 //Solicitado troca do modo WiFi
                 press_hold_timeout = false;
-                if(nvs_app_get_mode() == APP_MODE_WIFI_AP_WEB_SERVER)
-                    nvs_app_set_mode(APP_MODE_WIFI_STA);
+                if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEB_SERVER)
+                    nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
                 else 
-                    nvs_app_set_mode(APP_MODE_WIFI_AP_WEB_SERVER);
+                    nvs_set_app_mode(APP_MODE_WIFI_AP_WEB_SERVER);
                 
             }
         }
@@ -95,13 +97,31 @@ void init_IOs() {
 void app_main(void) {
 	//nvs_flash_erase();
     
-    ESP_LOGI(TAG, "App Version: 3");
+    ESP_LOGI(TAG, "App Version: 4");
 	
 	print_chip_info();
 
     init_IOs();
 
-    init_app_mode();
+    // Inicializa o armazenamento não volátil (NVS)
+    nvs_flash_init();
+
+    APP_MODE_t app_mode = nvs_get_app_mode();
+    switch(app_mode)
+    {
+        case APP_MODE_WIFI_AP_WEB_SERVER:
+        {
+            // Inicializa WiFi como Ponto de Acesso e sobe Webserver
+            start_webserver();
+        }
+        break;
+        case APP_MODE_WIFI_MESH_NETWORK:
+        {
+            // Inicializa aplicacao com rede mesh
+            start_mesh();
+        }
+        break;
+    }
 
     // Cria a tarefa para piscar o LED
     xTaskCreate(blink_led_task, "blink_led_task", 2048, NULL, 5, NULL);

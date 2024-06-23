@@ -51,7 +51,7 @@ esp_err_t nvs_get_wifi_credentials(char *ssid, size_t ssid_len, char *password, 
     return err;
 }
 
-void nvs_app_set_mode(APP_MODE_t mode) {
+void nvs_set_app_mode(APP_MODE_t mode) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
@@ -63,7 +63,7 @@ void nvs_app_set_mode(APP_MODE_t mode) {
     
     ESP_LOGI(TAG, "Solicitado troca do modo da aplicacao para \"%s\"", 
         mode == APP_MODE_WIFI_MESH_NETWORK ? "MESH_NETWORK" : 
-        mode == APP_MODE_WIFI_STA ? "STA" : "AP+WEBSERVER");
+        mode == APP_MODE_WIFI_AP_WEB_SERVER ? "AP+WEBSERVER" : "UNKNOWN");
 
     ESP_LOGI(TAG, "Reiniciando ...");
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -71,7 +71,7 @@ void nvs_app_set_mode(APP_MODE_t mode) {
     
 }
 
-APP_MODE_t nvs_app_get_mode(void) {
+APP_MODE_t nvs_get_app_mode(void) {
     nvs_handle_t nvs_handle;
     int32_t mode = APP_MODE_WIFI_AP_WEB_SERVER;  // Default mode
     esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READONLY, &nvs_handle);
@@ -80,32 +80,4 @@ APP_MODE_t nvs_app_get_mode(void) {
         nvs_close(nvs_handle);
     }
     return (APP_MODE_t)mode;
-}
-
-//Indica se esta como ponto de acesso
-bool wifi_ap_mode_active(void) {
-    wifi_mode_t mode;
-	if(esp_wifi_get_mode(&mode) != ESP_OK) return false;
-
-    return mode == WIFI_MODE_AP;
-}
-
-//Indica se esta como STA e conectado a um roteador
-bool is_wifi_sta_connected(void)
-{
-    wifi_mode_t mode;
-    esp_wifi_get_mode(&mode);
-    if (mode != WIFI_MODE_STA) {
-        ESP_LOGI(TAG, "WiFi is not in STA mode");
-        return false;
-    }
-
-    wifi_ap_record_t ap_info;
-    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
-        //ESP_LOGI(TAG, "WiFi is in STA mode and connected to AP");
-        return true;
-    } else {
-        //ESP_LOGI(TAG, "WiFi is in STA mode but not connected to AP");
-        return false;
-    }
 }
