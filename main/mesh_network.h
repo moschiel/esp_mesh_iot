@@ -80,6 +80,6 @@ esp_err_t mesh_netif_start_root_ap(bool is_root, uint32_t dns_addr);
  */
 uint8_t* mesh_netif_get_station_mac(void);
 
-void start_mesh(void);
+void start_mesh(char* router_ssid, char* router_password);
 
 #endif // MESH_NETWORK_H_

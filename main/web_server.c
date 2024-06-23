@@ -21,33 +21,58 @@ httpd_handle_t webserver_handle = NULL;
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
-    const char *response = "<!DOCTYPE html>"
+    // Obtém o endereço MAC
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
+    // Get WiFi router credentials from NVS
+    char router_ssid[MAX_SSID_LEN];
+    char router_password[MAX_PASS_LEN];
+    esp_err_t err_credentials = nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
+    if(err_credentials != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Fail to get Wifi Router Credentials from NVS");
+    }
+    router_ssid[MAX_SSID_LEN-1] = '\0';
+    router_password[MAX_PASS_LEN-1] = '\0';
+
+    char response[4000];
+    
+    snprintf(response, sizeof(response), "<!DOCTYPE html>"
        "<html>"
 	       "<head>"
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>"
 		       "<style>"
 			       "body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
 			       ".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-			       "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
+			       "input[type='text'], input[type='password'] { width: 80%%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
 			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }"
 			       "input[type='submit']:hover { background-color: #45a049; }"
 		       "</style>"
 	       "</head>"
 	       "<body>"
 		       "<div class='container'>"
-			       "<h2>Configure WiFi</h2>"
+                   "<h2>Device Info</h2>"
+                   "<p>MAC Address: %02X%02X%02X%02X%02X%02X</p>"
+                   "<br>"
+			       "<h2>Configure WiFi Router</h2>"
 			       "<form action='/set_wifi' method='post'>"
 				       "<label for='ssid'>SSID:</label><br>"
-				       "<input type='text' id='ssid' name='ssid' required><br>"
+				       "<input type='text' id='ssid' name='ssid' value='%s' required><br>"
 				       "<label for='password'>Password:</label><br>"
-				       "<input type='password' id='password' name='password' required><br><br>"
+				       "<input type='password' id='password' name='password' value='%s' required><br><br>"
 				       "<input type='submit' value='Set WiFi'>"
 			       "</form>"
 		       "</div>"
 	       "</body>"
-       "</html>";
+       "</html>",
+       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+       err_credentials == ESP_OK? router_ssid : "",
+       err_credentials == ESP_OK? router_password : "");
+
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
+    
 }
 
 // Manipulador para a rota "/set_wifi"
@@ -164,17 +189,22 @@ static void wifi_init_softap(void) {
 }
 
 // Inicia o servidor web
-void start_webserver(void) {
-    stop_webserver();
-    
+void start_webserver(bool init_wifi_ap) { 
     ESP_LOGI(TAG, "Iniciando WebServer");
 
-    wifi_init_softap();
+    if(is_webserver_active()) {
+        ESP_LOGW(TAG, "WebServer ja tinha sido iniciado");
+        return;
+    }
+
+    if(init_wifi_ap) {
+        wifi_init_softap();
+    }
     
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     //config.max_uri_handlers = 8;  // Ajusta o número máximo de manipuladores de URI
     //config.max_resp_headers = 16;  // Ajusta o número máximo de cabeçalhos de resposta
-    //config.stack_size = 8192;  // Aumenta o tamanho da pilha
+    config.stack_size = 8192;  // Aumenta o tamanho da pilha
     //config.recv_wait_timeout = 10;  // Ajusta o tempo de espera para receber (em segundos)
     //config.send_wait_timeout = 10;  // Ajusta o tempo de espera para enviar (em segundos)
 
@@ -182,13 +212,21 @@ void start_webserver(void) {
     if (httpd_start(&webserver_handle, &config) == ESP_OK) {
         httpd_register_uri_handler(webserver_handle, &root);
         httpd_register_uri_handler(webserver_handle, &set_wifi);
+        ESP_LOGI(TAG, "WebServer Iniciado.");
+    } else {
+        ESP_LOGE(TAG, "WebServer falhou.");
+        webserver_handle = NULL;
     }
 }
 
 // Para o servidor web
 void stop_webserver() {
-    if (webserver_handle) {
+    if (is_webserver_active()) {
         httpd_stop(webserver_handle);
         webserver_handle = NULL;
     }
+}
+
+bool is_webserver_active(void) {
+    return webserver_handle != NULL;
 }

@@ -18,6 +18,7 @@
 
 #include "mesh_network.h"
 #include "app_config.h"
+#include "web_server.h"
 
 /*******************************************************
  *                Macros
@@ -260,6 +261,12 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         mesh_event_root_address_t *root_addr = (mesh_event_root_address_t *)event_data;
         ESP_LOGI(TAG, "<MESH_EVENT_ROOT_ADDRESS>root address:"MACSTR"",
                  MAC2STR(root_addr->addr));
+        
+        if(esp_mesh_is_root()) {
+            start_webserver(false);
+        } else {
+            stop_webserver();
+        }
     }
     break;
     case MESH_EVENT_VOTE_STARTED: {
@@ -368,7 +375,7 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 
 }
 
-void start_mesh(void)
+void start_mesh(char* router_ssid, char* router_password)
 {
     // Inicializa o armazenamento não volátil (NVS)
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -418,16 +425,6 @@ void start_mesh(void)
     //memcpy((uint8_t *) &cfg.router.password, CONFIG_MESH_ROUTER_PASSWD,
     //       strlen(CONFIG_MESH_ROUTER_PASSWD));
 
-    // Get WiFi router credentials from NVS
-    char router_ssid[MAX_SSID_LEN];
-    char router_password[MAX_PASS_LEN];
-    esp_err_t err = nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
-    if(err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Fail to get Wifi Router Credentials from NVS, going back to AP+WEBSERVER mode");
-        nvs_set_app_mode(APP_MODE_WIFI_AP_WEB_SERVER);
-     	return;
-    }
     cfg.router.ssid_len = strlen(router_ssid);
     memcpy((uint8_t *) &cfg.router.ssid, router_ssid, cfg.router.ssid_len);
     memcpy((uint8_t *) &cfg.router.password, router_password, strlen(router_password));
@@ -436,6 +433,10 @@ void start_mesh(void)
     ESP_ERROR_CHECK(esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE));
     cfg.mesh_ap.max_connection = CONFIG_MESH_AP_CONNECTIONS;
     cfg.mesh_ap.nonmesh_max_connection = CONFIG_MESH_NON_MESH_AP_CONNECTIONS;
+    if((cfg.mesh_ap.max_connection + cfg.mesh_ap.nonmesh_max_connection) > 10) {
+        ESP_LOGE(TAG, "Config ultrapassa o maximo de conexoes permitidas");
+        return;
+    }
     memcpy((uint8_t *) &cfg.mesh_ap.password, CONFIG_MESH_AP_PASSWD,
            strlen(CONFIG_MESH_AP_PASSWD));
     ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));

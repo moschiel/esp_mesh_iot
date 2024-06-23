@@ -32,7 +32,7 @@ static void blink_led_task(void *arg) {
 			led_state = !led_state;
             // Pisca o LED 5 vezes por segundo indicando ao usuario que ja pode soltar o botao
             vTaskDelay(pdMS_TO_TICKS(200));
-        } else if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEB_SERVER) {
+        } else if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEBSERVER) {
 			led_state = !led_state;
             // Pisca o LED a cada 1 segundo se estiver no modo AP
             vTaskDelay(pdMS_TO_TICKS(1000));
@@ -71,10 +71,10 @@ static void check_buttons_task(void *arg) {
             if(press_hold_timeout) {
                 //Solicitado troca do modo WiFi
                 press_hold_timeout = false;
-                if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEB_SERVER)
+                if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEBSERVER)
                     nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
                 else 
-                    nvs_set_app_mode(APP_MODE_WIFI_AP_WEB_SERVER);
+                    nvs_set_app_mode(APP_MODE_WIFI_AP_WEBSERVER);
                 
             }
         }
@@ -109,16 +109,30 @@ void app_main(void) {
     APP_MODE_t app_mode = nvs_get_app_mode();
     switch(app_mode)
     {
-        case APP_MODE_WIFI_AP_WEB_SERVER:
+        case APP_MODE_WIFI_AP_WEBSERVER:
         {
-            // Inicializa WiFi como Ponto de Acesso e sobe Webserver
-            start_webserver();
+            // Inicializa WiFi como Ponto de Acesso
+            // e sobe Webserver no endereço http://192.168.4.1/
+            start_webserver(true);
         }
         break;
         case APP_MODE_WIFI_MESH_NETWORK:
         {
-            // Inicializa aplicacao com rede mesh
-            start_mesh();
+            // Get WiFi router credentials from NVS
+            char router_ssid[MAX_SSID_LEN];
+            char router_password[MAX_PASS_LEN];
+            esp_err_t err = nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
+            if(err != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Fail to get Wifi Router Credentials from NVS, going back to mode AP+WEBSERVER");
+                nvs_set_app_mode(APP_MODE_WIFI_AP_WEBSERVER);
+                return;
+            }
+
+            // Inicializa WiFI como Estação com rede Mesh
+            // assumindo que o ip do roteador eh http://192.168.0.1/
+            // tambem subimos o WebServer apenas para o nó principal no endereço http://192.168.0.8/
+            start_mesh(router_ssid, router_password);
         }
         break;
     }

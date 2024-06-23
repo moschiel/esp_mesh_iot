@@ -63,7 +63,7 @@ void nvs_set_app_mode(APP_MODE_t mode) {
     
     ESP_LOGI(TAG, "Solicitado troca do modo da aplicacao para \"%s\"", 
         mode == APP_MODE_WIFI_MESH_NETWORK ? "MESH_NETWORK" : 
-        mode == APP_MODE_WIFI_AP_WEB_SERVER ? "AP+WEBSERVER" : "UNKNOWN");
+        mode == APP_MODE_WIFI_AP_WEBSERVER ? "AP+WEBSERVER" : "UNKNOWN");
 
     ESP_LOGI(TAG, "Reiniciando ...");
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -73,7 +73,7 @@ void nvs_set_app_mode(APP_MODE_t mode) {
 
 APP_MODE_t nvs_get_app_mode(void) {
     nvs_handle_t nvs_handle;
-    int32_t mode = APP_MODE_WIFI_AP_WEB_SERVER;  // Default mode
+    int32_t mode = APP_MODE_WIFI_AP_WEBSERVER;  // Default mode
     esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READONLY, &nvs_handle);
     if (err == ESP_OK) {
         nvs_get_i32(nvs_handle, APP_MODE_KEY, &mode);
