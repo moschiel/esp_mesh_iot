@@ -232,6 +232,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         if (esp_mesh_is_root()) {
             esp_netif_dhcpc_stop(netif_sta);
             esp_netif_dhcpc_start(netif_sta);
+            start_webserver(false);
         }
         esp_mesh_comm_p2p_start();
     }
@@ -244,6 +245,11 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         is_mesh_connected = false;
         //mesh_disconnected_indicator(); //LED RGB, setava uma cor de alerta pra dizer que nao esta conectado ao pai, logo nao esta em nenhuma camada.
         mesh_layer = esp_mesh_get_layer();
+
+        if (esp_mesh_is_root()) {
+            stop_webserver();
+            esp_netif_dhcpc_stop(netif_sta);
+        }
     }
     break;
     case MESH_EVENT_LAYER_CHANGE: {
@@ -261,12 +267,6 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         mesh_event_root_address_t *root_addr = (mesh_event_root_address_t *)event_data;
         ESP_LOGI(TAG, "<MESH_EVENT_ROOT_ADDRESS>root address:"MACSTR"",
                  MAC2STR(root_addr->addr));
-        
-        if(esp_mesh_is_root()) {
-            start_webserver(false);
-        } else {
-            stop_webserver();
-        }
     }
     break;
     case MESH_EVENT_VOTE_STARTED: {
@@ -371,7 +371,17 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
                       int32_t event_id, void *event_data)
 {
     ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-    ESP_LOGI(TAG, "<IP_EVENT_STA_GOT_IP>IP:" IPSTR, IP2STR(&event->ip_info.ip));
+
+    switch(event_id)
+    {
+        case IP_EVENT_STA_GOT_IP:
+            ESP_LOGI(TAG, "<IP_EVENT_STA_GOT_IP>IP:" IPSTR, IP2STR(&event->ip_info.ip));
+        break;
+
+        case IP_EVENT_STA_LOST_IP:
+            ESP_LOGW(TAG, "<IP_EVENT_STA_LOST_IP>");
+        break;
+    }
 
 }
 
@@ -389,7 +399,7 @@ void start_mesh(char* router_ssid, char* router_password)
     /*  wifi initialization */
     wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&config));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
     ESP_ERROR_CHECK(esp_wifi_start());
     /*  mesh initialization */

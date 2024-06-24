@@ -51,7 +51,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 	       "<head>"
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>"
 		       "<style>"
-			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 400px; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
+			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 320px; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
 			       ".container { text-align: center; background-color: #fff; padding: 20px; width: auto; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
 			       "input[type='text'], input[type='password'] { width: 80%%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
 			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }"
@@ -78,7 +78,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
                 err_credentials == ESP_OK? router_ssid : "",
                 err_credentials == ESP_OK? router_password : "");
-                httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
 
     if(nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK) {
         snprintf(response, sizeof(response), 
@@ -87,13 +87,13 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                     "<h3>Nodes in Mesh Network</h3>"
                     "%s"
                 "</div>", nodes_list);
-                httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
     }
 
     snprintf(response, sizeof(response), 
             "</body>"
         "</html>");
-        httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
 
     //When you are finished sending all your chunks, you must call this function with buf_len as 0.
     httpd_resp_send_chunk(req, response, 0);
@@ -250,7 +250,7 @@ void start_webserver(bool init_wifi_ap) {
     if (httpd_start(&webserver_handle, &config) == ESP_OK) {
         httpd_register_uri_handler(webserver_handle, &root);
         httpd_register_uri_handler(webserver_handle, &set_wifi);
-        ESP_LOGI(TAG, "WebServer Iniciado.");
+        ESP_LOGI(TAG, "WebServer Iniciado com sucesso.");
     } else {
         ESP_LOGE(TAG, "WebServer falhou.");
         webserver_handle = NULL;
@@ -262,6 +262,7 @@ void stop_webserver() {
     if (is_webserver_active()) {
         httpd_stop(webserver_handle);
         webserver_handle = NULL;
+        ESP_LOGW(TAG, "WebServer foi parado.");
     }
 }
 
