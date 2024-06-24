@@ -30,12 +30,13 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     char router_ssid[MAX_SSID_LEN];
     char router_password[MAX_PASS_LEN];
     esp_err_t err_credentials = nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
-    if(err_credentials != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Fail to get Wifi Router Credentials from NVS");
-    }
     router_ssid[MAX_SSID_LEN-1] = '\0';
     router_password[MAX_PASS_LEN-1] = '\0';
+
+    // Obtem as credenciais da rede mesh da NVS
+    uint8_t mesh_id[6];
+    char mesh_password[MAX_PASS_LEN];
+    nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
 
     // Get nodes list
     char *nodes_list = generate_nodes_list_html();
@@ -44,49 +45,79 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
     
-    char response[4000];
+    char response[3000];
     
-    snprintf(response, sizeof(response), "<!DOCTYPE html>"
+    strcpy(response, 
+    "<!DOCTYPE html>"
        "<html>"
 	       "<head>"
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>"
 		       "<style>"
-			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 320px; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
+			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 400px; max-width: 90%; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
 			       ".container { text-align: center; background-color: #fff; padding: 20px; width: auto; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-			       "input[type='text'], input[type='password'] { width: 80%%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
+			       "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
 			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }"
 			       "input[type='submit']:hover { background-color: #45a049; }"
 		       "</style>"
+                "<script>"
+                    "function formatMeshID(e) {"
+                    "  var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');"
+                    "  e.target.value = r.match(/.{1,2}/g).join('-');"
+                    "}"
+                    "function togglePassword(id) {"
+                    "  var x = document.getElementById(id);"
+                    "  if (x.type === 'password') {"
+                    "    x.type = 'text';"
+                    "  } else {"
+                    "    x.type = 'password';"
+                    "  }"
+                    "}"
+                "</script>"
 	       "</head>"
-	       "<body>"
-               "<br>"
+	       "<body>");
+    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+
+    snprintf(response, sizeof(response),
+               "<br/>"
 		       "<div class='container'>"
                    "<h2>Device Info</h2>"
-                   "<p>MAC Address: %02X:%02X:%02X:%02X:%02X:%02X</p>"
+                   "<p>Root MAC address: "MACSTR"</p>"
 		       "</div>"
-               "<br>"
+               "<br/>"
 		       "<div class='container'>"
-			       "<h2>Configure WiFi Router</h2>"
 			       "<form action='/set_wifi' method='post'>"
-				       "<label for='ssid'>SSID:</label><br>"
-				       "<input type='text' id='ssid' name='ssid' value='%s' required><br>"
-				       "<label for='password'>Password:</label><br>"
-				       "<input type='password' id='password' name='password' value='%s' required><br><br>"
-				       "<input type='submit' value='Set WiFi'>"
+                        "<h2>Configure WiFi Router</h2>"
+                        "<label for='router_ssid'>Router SSID:</label><br>"
+                        "<input type='text' id='router_ssid' name='router_ssid' value='%s' required><br>"
+                        "<label for='router_password'>Router Password:</label><br>"
+                        "<input type='password' id='router_password' name='router_password' value='%s' required><br/>"
+                        "<input type='checkbox' onclick='togglePassword(\"router_password\")'> Show Password<br/>"
+                        "<br/>"
+                        "<h2>Configure Mesh Network</h2>"
+                        "<label for='mesh_id'>Mesh ID:</label><br>"
+                        "<input type='text' id='mesh_id' name='mesh_id' value='%02X-%02X-%02X-%02X-%02X-%02X' required oninput='formatMeshID(event)' maxlength='17'><br>" //NAO PODE SEPARADOR ':', FORM CODIFICA DIFERENTE AO FAZER POST
+                        "<label for='mesh_password'>Mesh Password:</label><br>"
+                        "<input type='password' id='mesh_password' name='mesh_password' value='%s' required><br/>"
+                        "<input type='checkbox' onclick='togglePassword(\"mesh_password\")'> Show Password<br/>"
+                        "<br/>"
+                        "<input type='submit' value='Update Config'>"
 			       "</form>"
 		       "</div>",
-                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                MAC2STR(mac),
                 err_credentials == ESP_OK? router_ssid : "",
-                err_credentials == ESP_OK? router_password : "");
+                err_credentials == ESP_OK? router_password : "",
+                mesh_id[0],mesh_id[1],mesh_id[2],mesh_id[3],mesh_id[4],mesh_id[5],
+                mesh_password);
     httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
 
     if(nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK) {
         snprintf(response, sizeof(response), 
-                "<br>"
+                "<br/>"
                 "<div class='container'>"
-                    "<h3>Nodes in Mesh Network</h3>"
+                    "<h2>Nodes in Mesh Network</h2>"
                     "%s"
-                "</div>", nodes_list);
+                "</div>"
+                "<br/>", nodes_list);
         httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
     }
 
@@ -130,13 +161,20 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
     }
     buf[received] = '\0';
 
-    // Extrai SSID e senha do buffer recebido usando sscanf
-    char ssid[MAX_SSID_LEN] = {0};
-    char password[MAX_PASS_LEN] = {0};
-    sscanf(buf, "ssid=%[^&]&password=%s", ssid, password);
 
-    if (strlen(ssid) > 0 && strlen(password) > 0) {
-        nvs_set_wifi_credentials(ssid, password);
+    // Extrai SSID e senha do buffer recebido usando sscanf
+    char router_ssid[MAX_SSID_LEN] = {0};
+    char router_password[MAX_PASS_LEN] = {0};
+    char mesh_id_str[6 + 5*3] = {0};  // Buffer para a string do mesh_id no formato MAC, na url o caracter ':' eh convertido para string de 3 caracters "%3A"
+    char mesh_password[MAX_PASS_LEN] = {0};
+    sscanf(buf, "router_ssid=%[^&]&router_password=%[^&]&mesh_id=%[^&]&mesh_password=%s", router_ssid, router_password, mesh_id_str, mesh_password);
+
+    if (strlen(router_ssid) > 0 && strlen(router_password) > 0 && strlen(mesh_id_str) > 0 && strlen(mesh_password) > 0) {
+        uint8_t mesh_id[6] = {0};
+        mac_str_to_bytes(mesh_id_str, mesh_id);
+
+        nvs_set_wifi_credentials(router_ssid, router_password);
+        nvs_set_mesh_credentials(mesh_id, mesh_password);
 
         const char *response = "<!DOCTYPE html>"
            "<html>"

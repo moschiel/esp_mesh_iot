@@ -3,5 +3,6 @@
 
 void print_chip_info(void);
 char* generate_nodes_list_html(void);
+void mac_str_to_bytes(const char *mac_str, uint8_t *mac_bytes);
 
 #endif /* MAIN_UTILS_H_ */

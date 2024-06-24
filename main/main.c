@@ -118,21 +118,24 @@ void app_main(void) {
         break;
         case APP_MODE_WIFI_MESH_NETWORK:
         {
-            // Get WiFi router credentials from NVS
+            // Obtem as credenciais do roteador WiFi da NVS
             char router_ssid[MAX_SSID_LEN];
             char router_password[MAX_PASS_LEN];
             esp_err_t err = nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
             if(err != ESP_OK)
             {
-                ESP_LOGE(TAG, "Fail to get Wifi Router Credentials from NVS, going back to mode AP+WEBSERVER");
+                ESP_LOGE(TAG, "retornando ao modo AP+WEBSERVER");
                 nvs_set_app_mode(APP_MODE_WIFI_AP_WEBSERVER);
                 return;
             }
 
-            // Inicializa WiFI como Estação com rede Mesh
-            // assumindo que o ip do roteador eh http://192.168.0.1/
-            // tambem subimos o WebServer apenas para o nó principal no endereço http://192.168.0.8/
-            start_mesh(router_ssid, router_password);
+            // Obtem as credenciais da rede mesh da NVS
+            uint8_t mesh_id[6];
+            char mesh_password[MAX_PASS_LEN];
+            nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
+
+            // Inicializa WiFI como Estação com Rede Mesh
+            start_mesh(router_ssid, router_password, mesh_id, mesh_password);
         }
         break;
     }

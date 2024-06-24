@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "esp_chip_info.h"
 #include "esp_flash.h"
@@ -68,13 +69,17 @@ char* generate_nodes_list_html(void) {
     // Constrói a lista de endereços MAC dos nós
     snprintf(nodes_list, max_len, "<ul>");
     for (int i = 0; i < routing_table_size; i++) {
-        char mac_str[18];
-        snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 routing_table[i].addr[0], routing_table[i].addr[1], routing_table[i].addr[2],
-                 routing_table[i].addr[3], routing_table[i].addr[4], routing_table[i].addr[5]);
-        snprintf(nodes_list + strlen(nodes_list), max_len - strlen(nodes_list), "<li>%s</li>", mac_str);
+        snprintf(nodes_list + strlen(nodes_list), max_len - strlen(nodes_list), "<li>"MACSTR"</li>", MAC2STR(routing_table[i].addr));
     }
     snprintf(nodes_list + strlen(nodes_list), max_len - strlen(nodes_list), "</ul>");
     
     return nodes_list;
+}
+
+
+// Função para converter uma string no formato MAC para um array de bytes
+void mac_str_to_bytes(const char *mac_str, uint8_t *mac_bytes) {
+    for (int i = 0; i < 6; ++i) {
+        sscanf(mac_str + 3 * i, "%2hhx", &mac_bytes[i]);
+    }
 }

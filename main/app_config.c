@@ -15,6 +15,8 @@
 #define APP_NAMESPACE "app_config"  // Namespace para armazenar as configurações da aplicacao na NVS
 #define WIFI_ROUTER_SSID_KEY "wifi_ssid"  // Chave para o SSID do roteador WiFi na NVS
 #define WIFI_ROUTER_PASS_KEY "wifi_password"  // Chave para a senha do roteador WiFi na NVS
+#define MESH_ID_KEY "mesh_id"  // Chave para o ID da rede mesh na NVS
+#define MESH_PASSWORD_KEY "mesh_password"  // Chave para a senha da rede mesh na NVS
 #define APP_MODE_KEY "app_mode" // Chave para a modo da aplicacao na NVS
 
 
@@ -22,6 +24,8 @@ static const char *TAG = "APP_CONFIG";
 
 //Salva na NVS o ssid e password do roteador WiFi
 esp_err_t nvs_set_wifi_credentials(const char *ssid, const char *password) {
+    ESP_LOGI(TAG, "Setting WiFi Router, ssid: %s, password: %s", ssid, password);
+
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
@@ -40,14 +44,66 @@ esp_err_t nvs_set_wifi_credentials(const char *ssid, const char *password) {
 esp_err_t nvs_get_wifi_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len) {
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_get_str(nvs_handle, WIFI_ROUTER_SSID_KEY, ssid, &ssid_len);
+        if (err == ESP_OK) {
+            err = nvs_get_str(nvs_handle, WIFI_ROUTER_PASS_KEY, password, &password_len);
+        }
+    }
+    nvs_close(nvs_handle);
+
+    if(err != ESP_OK) {
+        ESP_LOGE(TAG, "Falha ao obter credenciais do roteador WiFi");
+    }
+    return err;
+}
+
+// Salva na NVS o ID e senha da rede Mesh
+esp_err_t nvs_set_mesh_credentials(const uint8_t *mesh_id, const char *mesh_password) {
+    ESP_LOGI(TAG, "Setting Mesh, ID: "MACSTR", password: %s", MAC2STR(mesh_id), mesh_password);
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
         return err;
     }
-    err = nvs_get_str(nvs_handle, WIFI_ROUTER_SSID_KEY, ssid, &ssid_len);
+    err = nvs_set_blob(nvs_handle, MESH_ID_KEY, mesh_id, 6);
     if (err == ESP_OK) {
-        err = nvs_get_str(nvs_handle, WIFI_ROUTER_PASS_KEY, password, &password_len);
+        err = nvs_set_str(nvs_handle, MESH_PASSWORD_KEY, mesh_password);
     }
+    nvs_commit(nvs_handle);
     nvs_close(nvs_handle);
+
+    if(err != ESP_OK) {
+        ESP_LOGI(TAG, "Fail Setting Mesh Config");
+    }
+
+    return err;
+}
+
+// Obtém da NVS o ID e senha da rede Mesh para se conectar
+esp_err_t nvs_get_mesh_credentials(uint8_t *mesh_id, char *mesh_password, size_t mesh_password_len) {
+    nvs_handle_t nvs_handle;
+    size_t mesh_id_len = 6;
+    esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_get_blob(nvs_handle, MESH_ID_KEY, mesh_id, &mesh_id_len);
+        if (err == ESP_OK) {
+            err = nvs_get_str(nvs_handle, MESH_PASSWORD_KEY, mesh_password, &mesh_password_len);
+        }
+        nvs_close(nvs_handle);
+    }
+
+    if (err != ESP_OK) {
+        // Define valores padrão se a leitura da NVS falhar
+        uint8_t default_mesh_id[6] = DEFAULT_MESH_ID;
+        memcpy(mesh_id, default_mesh_id, 6);
+        strncpy(mesh_password, DEFAULT_MESH_PASSWORD, mesh_password_len);
+        mesh_password[mesh_password_len - 1] = '\0'; // Garante terminação nula
+
+        ESP_LOGE(TAG, "Falha ao obter credenciais da rede Mesh, usando valores padrao");
+    }
+
     return err;
 }
 

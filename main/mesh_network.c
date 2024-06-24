@@ -34,7 +34,6 @@
  *                Variable Definitions
  *******************************************************/
 static const char *TAG = "MESH_NETWORK";
-static const uint8_t MESH_ID[6] = { 0x77, 0x77, 0x77, 0x77, 0x77, 0x77};
 static uint8_t tx_buf[TX_SIZE] = { 0, };
 static uint8_t rx_buf[RX_SIZE] = { 0, };
 static bool is_running = true;
@@ -385,7 +384,7 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 
 }
 
-void start_mesh(char* router_ssid, char* router_password)
+void start_mesh(char* router_ssid, char* router_password, uint8_t mesh_id[6], char* mesh_password)
 {
     // Inicializa o armazenamento não volátil (NVS)
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -425,16 +424,10 @@ void start_mesh(char* router_ssid, char* router_password)
 #endif
     mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
     /* mesh ID */
-    memcpy((uint8_t *) &cfg.mesh_id, MESH_ID, 6);
+    memcpy((uint8_t *) &cfg.mesh_id, mesh_id, 6);
+    
     /* router */
     cfg.channel = CONFIG_MESH_CHANNEL;
-
-    // Get WiFi router credentials from SDKCONFIG
-    //cfg.router.ssid_len = strlen(CONFIG_MESH_ROUTER_SSID);
-    //memcpy((uint8_t *) &cfg.router.ssid, CONFIG_MESH_ROUTER_SSID, cfg.router.ssid_len);
-    //memcpy((uint8_t *) &cfg.router.password, CONFIG_MESH_ROUTER_PASSWD,
-    //       strlen(CONFIG_MESH_ROUTER_PASSWD));
-
     cfg.router.ssid_len = strlen(router_ssid);
     memcpy((uint8_t *) &cfg.router.ssid, router_ssid, cfg.router.ssid_len);
     memcpy((uint8_t *) &cfg.router.password, router_password, strlen(router_password));
@@ -447,8 +440,7 @@ void start_mesh(char* router_ssid, char* router_password)
         ESP_LOGE(TAG, "Config ultrapassa o maximo de conexoes permitidas");
         return;
     }
-    memcpy((uint8_t *) &cfg.mesh_ap.password, CONFIG_MESH_AP_PASSWD,
-           strlen(CONFIG_MESH_AP_PASSWD));
+    memcpy((uint8_t *) &cfg.mesh_ap.password, mesh_password, strlen(mesh_password));
     ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
     /* mesh start */
     ESP_ERROR_CHECK(esp_mesh_start());
