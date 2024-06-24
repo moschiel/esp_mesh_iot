@@ -10,6 +10,7 @@
 
 #include "web_server.h"
 #include "app_config.h"
+#include "utils.h"
 
 // Define a macro MIN se não estiver definida
 #ifndef MIN
@@ -17,7 +18,7 @@
 #endif
 
 static const char *TAG = "WEB_SERVER";
-httpd_handle_t webserver_handle = NULL;
+static httpd_handle_t webserver_handle = NULL;
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
@@ -36,6 +37,13 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     router_ssid[MAX_SSID_LEN-1] = '\0';
     router_password[MAX_PASS_LEN-1] = '\0';
 
+    // Get nodes list
+    char *nodes_list = generate_nodes_list_html();
+    if (nodes_list == NULL) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+    
     char response[4000];
     
     snprintf(response, sizeof(response), "<!DOCTYPE html>"
@@ -43,18 +51,21 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 	       "<head>"
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>"
 		       "<style>"
-			       "body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
-			       ".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
+			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 400px; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
+			       ".container { text-align: center; background-color: #fff; padding: 20px; width: auto; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
 			       "input[type='text'], input[type='password'] { width: 80%%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
 			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }"
 			       "input[type='submit']:hover { background-color: #45a049; }"
 		       "</style>"
 	       "</head>"
 	       "<body>"
+               "<br>"
 		       "<div class='container'>"
                    "<h2>Device Info</h2>"
-                   "<p>MAC Address: %02X%02X%02X%02X%02X%02X</p>"
-                   "<br>"
+                   "<p>MAC Address: %02X:%02X:%02X:%02X:%02X:%02X</p>"
+		       "</div>"
+               "<br>"
+		       "<div class='container'>"
 			       "<h2>Configure WiFi Router</h2>"
 			       "<form action='/set_wifi' method='post'>"
 				       "<label for='ssid'>SSID:</label><br>"
@@ -63,69 +74,96 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 				       "<input type='password' id='password' name='password' value='%s' required><br><br>"
 				       "<input type='submit' value='Set WiFi'>"
 			       "</form>"
-		       "</div>"
-	       "</body>"
-       "</html>",
-       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
-       err_credentials == ESP_OK? router_ssid : "",
-       err_credentials == ESP_OK? router_password : "");
+		       "</div>",
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                err_credentials == ESP_OK? router_ssid : "",
+                err_credentials == ESP_OK? router_password : "");
+                httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
 
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
+    if(nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK) {
+        snprintf(response, sizeof(response), 
+                "<br>"
+                "<div class='container'>"
+                    "<h3>Nodes in Mesh Network</h3>"
+                    "%s"
+                "</div>", nodes_list);
+                httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+    }
+
+    snprintf(response, sizeof(response), 
+            "</body>"
+        "</html>");
+        httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+
+    //When you are finished sending all your chunks, you must call this function with buf_len as 0.
+    httpd_resp_send_chunk(req, response, 0);
+
+    free(nodes_list);
     return ESP_OK;
     
 }
 
 // Manipulador para a rota "/set_wifi"
 static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
-    char buf[100];
+    // Calcula o tamanho necessário do buffer
+    size_t buf_len = req->content_len + 1;
+    char *buf = (char *)malloc(buf_len);
+    if (buf == NULL) {
+        ESP_LOGE(TAG, "Falha ao alocar memória para o buffer");
+        return ESP_FAIL;
+    }
+
     int ret, remaining = req->content_len;
+    size_t received = 0;
 
     // Recebe o conteúdo da requisição
     while (remaining > 0) {
-        if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <= 0) {
+        if ((ret = httpd_req_recv(req, buf + received, MIN(remaining, 64))) <= 0) {
             if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
                 continue;
             }
+            free(buf);
             return ESP_FAIL;
         }
+        received += ret;
         remaining -= ret;
     }
-    buf[req->content_len] = '\0';
+    buf[received] = '\0';
 
-    // Extrai SSID e senha do buffer recebido
-    char *ssid = strtok(buf, "&");
-    char *password = strtok(NULL, "&");
-    if (ssid && password) {
-        ssid = strtok(ssid, "=");
-        ssid = strtok(NULL, "=");
-        password = strtok(password, "=");
-        password = strtok(NULL, "=");
+    // Extrai SSID e senha do buffer recebido usando sscanf
+    char ssid[MAX_SSID_LEN] = {0};
+    char password[MAX_PASS_LEN] = {0};
+    sscanf(buf, "ssid=%[^&]&password=%s", ssid, password);
+
+    if (strlen(ssid) > 0 && strlen(password) > 0) {
         nvs_set_wifi_credentials(ssid, password);
-        
-	    const char *response = "<!DOCTYPE html>"
+
+        const char *response = "<!DOCTYPE html>"
            "<html>"
-	           "<head>"
-		           "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-		           "<style>"
-						"body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
-						".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-		           "</style>"
-	           "</head>"
-	           "<body>"
-		           "<div class='container'>"
-			           "<h2>WiFi settings updated</h2>"
-			           "<p>Restarting...</p>"
-		           "</div>"
-	           "</body>"
+               "<head>"
+                   "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                   "<style>"
+                        "body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
+                        ".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
+                   "</style>"
+               "</head>"
+               "<body>"
+                   "<div class='container'>"
+                       "<h2>WiFi settings updated</h2>"
+                       "<p>Restarting...</p>"
+                   "</div>"
+               "</body>"
            "</html>";
-        
+
         httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-        vTaskDelay(pdMS_TO_TICKS(1000)); //da tempo pra enviar o retorno http
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Da tempo pra enviar o retorno HTTP
 
         nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
     } else {
         httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
     }
+
+    free(buf);
     return ESP_OK;
 }
 
