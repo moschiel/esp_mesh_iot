@@ -2,7 +2,7 @@
 # for more information about component CMakeLists.txt files.
 
 idf_component_register(
-    SRCS main.c app_config.c web_server.c utils.c mesh_network.c       # list the source files of this component
+    SRCS main.c app_config.c web_server.c utils.c mesh_network.c  config_ip_addr.c     # list the source files of this component
     INCLUDE_DIRS        "." # optional, add here public include directories
     PRIV_INCLUDE_DIRS   # optional, add here private include directories
     REQUIRES            esp_wifi esp_http_server driver nvs_flash # optional, list the public requirements (component names)

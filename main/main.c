@@ -36,8 +36,8 @@ static void blink_led_task(void *arg) {
 			led_state = !led_state;
             // Pisca o LED a cada 1 segundo se estiver no modo AP
             vTaskDelay(pdMS_TO_TICKS(1000));
-        } else if (nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK) {
-            // Mantem o LED ligado se estiver no modo STA
+        } else if (nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK && is_mesh_parent_connected()) {
+            // Mantem o LED ligado se estiver no modo MESH e conectado a um nó pai
             led_state = true;
             vTaskDelay(pdMS_TO_TICKS(1000));
         } else {
