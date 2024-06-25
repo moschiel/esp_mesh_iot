@@ -11,6 +11,7 @@
 #include "web_server.h"
 #include "app_config.h"
 #include "utils.h"
+#include "mesh_network.h"
 
 // Define a macro MIN se não estiver definida
 #ifndef MIN
@@ -37,13 +38,6 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     uint8_t mesh_id[6];
     char mesh_password[MAX_PASS_LEN];
     nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
-
-    // Get nodes list
-    char *nodes_list = generate_nodes_list_html();
-    if (nodes_list == NULL) {
-        httpd_resp_send_500(req);
-        return ESP_FAIL;
-    }
     
     char response[3000];
     
@@ -81,7 +75,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                "<br/>"
 		       "<div class='container'>"
                    "<h2>Device Info</h2>"
-                   "<p>Root MAC address: "MACSTR"</p>"
+                   "<p>MAC address: "MACSTR"</p>"
 		       "</div>"
                "<br/>"
 		       "<div class='container'>"
@@ -110,14 +104,29 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                 mesh_password);
     httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
 
-    if(nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK) {
-        snprintf(response, sizeof(response), 
+    if(nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK && is_mesh_parent_connected()) {
+        strcpy(response, 
                 "<br/>"
                 "<div class='container'>"
                     "<h2>Nodes in Mesh Network</h2>"
-                    "%s"
+                    "<ul>");
+        httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+
+        // Obtém a tabela de roteamento da rede mesh
+        mesh_addr_t routing_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
+        int routing_table_size = 0;
+        esp_mesh_get_routing_table((mesh_addr_t *)&routing_table, CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &routing_table_size);
+        for (int i = 0; i < routing_table_size; i++) {
+            snprintf(response, sizeof(response),
+                        "<li>"MACSTR"</li>", 
+                        MAC2STR(routing_table[i].addr));            
+            httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+        }
+        
+        strcpy(response,
+                    "</ul>"
                 "</div>"
-                "<br/>", nodes_list);
+                "<br/>");
         httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
     }
 
@@ -129,7 +138,6 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     //When you are finished sending all your chunks, you must call this function with buf_len as 0.
     httpd_resp_send_chunk(req, response, 0);
 
-    free(nodes_list);
     return ESP_OK;
     
 }

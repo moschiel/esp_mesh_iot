@@ -48,35 +48,6 @@ void print_chip_info(void) {
     printf("MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
-char* generate_nodes_list_html(void) {
-    // Obtém a tabela de roteamento
-    mesh_addr_t routing_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
-    int routing_table_size = 0;
-    esp_mesh_get_routing_table((mesh_addr_t *)&routing_table, CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &routing_table_size);
-
-    // Cada nó contribui com 26 bytes:
-    // - 17 bytes para o endereço MAC (ex: "AA:BB:CC:DD:EE:FF")
-    // - 9 bytes para a tag <li></li>
-    // A tag <ul></ul> contribui com 9 bytes
-    // Adiciona 1 byte para o caractere nulo
-    size_t max_len = routing_table_size * 26 + 9 + 1; 
-    char *nodes_list = (char *)malloc(max_len);
-    if (nodes_list == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for nodes list");
-        return NULL;
-    }
-
-    // Constrói a lista de endereços MAC dos nós
-    snprintf(nodes_list, max_len, "<ul>");
-    for (int i = 0; i < routing_table_size; i++) {
-        snprintf(nodes_list + strlen(nodes_list), max_len - strlen(nodes_list), "<li>"MACSTR"</li>", MAC2STR(routing_table[i].addr));
-    }
-    snprintf(nodes_list + strlen(nodes_list), max_len - strlen(nodes_list), "</ul>");
-    
-    return nodes_list;
-}
-
-
 // Função para converter uma string no formato MAC para um array de bytes
 void mac_str_to_bytes(const char *mac_str, uint8_t *mac_bytes) {
     for (int i = 0; i < 6; ++i) {
