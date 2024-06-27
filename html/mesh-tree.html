@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mesh Network Tree</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        li {
+            margin: 5px 0;
+            padding: 5px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .layer-0 { background-color: #ffcccc; }
+        .layer-1 { background-color: #ffebcc; }
+        .layer-2 { background-color: #ffffcc; }
+        .layer-3 { background-color: #ccffcc; }
+        .layer-4 { background-color: #cceeff; }
+        .layer-5 { background-color: #ccccff; }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mesh Network Tree</h1>
+    <ul>
+        <li class="layer-0">Root MAC: 24:6F:28:3A:7B:9C
+            <ul>
+                <li class="layer-1">Node MAC: 24:6F:28:3A:7B:9D, Layer: 1
+                    <ul class="hidden">
+                        <li class="layer-2">Node MAC: 24:6F:28:3A:7B:9E, Layer: 2
+                            <ul class="hidden">
+                                <li class="layer-3">Node MAC: 24:6F:28:3A:7B:9F, Layer: 3</li>
+                            </ul>
+                        </li>
+                        <li class="layer-2">Node MAC: 24:6F:28:3A:7B:A0, Layer: 2</li>
+                    </ul>
+                </li>
+                <li class="layer-1">Node MAC: 24:6F:28:3A:7B:A1, Layer: 1</li>
+                <li class="layer-1">Node MAC: 24:6F:28:3A:7B:A2, Layer: 1
+                    <ul class="hidden">
+                        <li class="layer-2">Node MAC: 24:6F:28:3A:7B:A3, Layer: 2</li>
+                        <li class="layer-2">Node MAC: 24:6F:28:3A:7B:A4, Layer: 2</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+    <script>
+        document.querySelectorAll('li').forEach(li => {
+            li.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const children = this.querySelectorAll('ul');
+                children.forEach(child => child.classList.toggle('hidden'));
+            });
+        });
+    </script>
+    <dic
+</body>
+</html>

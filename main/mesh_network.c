@@ -20,11 +20,13 @@
 #include "app_config.h"
 #include "web_server.h"
 #include "config_ip_addr.h"
+#include "messages.h"
+#include "mesh_tree.h"
 
 /*******************************************************
  *                Macros
  *******************************************************/
-
+#define MAX_MESH_AP_CONNECTIONS_ON_EACH_NODE 2 //CONFIG_MESH_AP_CONNECTIONS
 /*******************************************************
  *                Constants
  *******************************************************/
@@ -35,13 +37,14 @@
  *                Variable Definitions
  *******************************************************/
 static const char *TAG = "MESH_NETWORK";
-static uint8_t tx_buf[TX_SIZE] = { 0, };
-static uint8_t rx_buf[RX_SIZE] = { 0, };
-static bool is_running = true;
+static uint8_t tx_buf[TX_SIZE] = { 0 };
+static uint8_t rx_buf[RX_SIZE] = { 0 };
 static bool is_mesh_connected = false;
 static mesh_addr_t mesh_parent_addr;
 static int mesh_layer = -1;
 static esp_netif_t *netif_sta = NULL;
+static uint8_t sta_mac[6];
+static uint8_t root_address[6];
 
 /*******************************************************
  *                Function Declarations
@@ -52,99 +55,100 @@ static esp_netif_t *netif_sta = NULL;
  *******************************************************/
 void mesh_p2p_tx_task(void *arg)
 {
-    int i;
     esp_err_t err;
-    int send_count = 0;
-    mesh_addr_t route_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
-    int route_table_size = 0;
-    mesh_data_t data;
-    data.data = tx_buf;
-    data.size = sizeof(tx_buf);
-    data.proto = MESH_PROTO_BIN;
-    data.tos = MESH_TOS_P2P;
-    is_running = true;
+    mesh_data_t mesh_data;
+    mesh_data.data = tx_buf;
+    mesh_data.tos = MESH_TOS_P2P;
+    esp_read_mac(sta_mac, ESP_MAC_WIFI_STA);
+    uint32_t count = 0;
+    while (1) {
+        if(!esp_mesh_is_root() && is_mesh_connected)
+        {
+            if((count % 10) == 0) { //envia a cada 10 segundos
+                mesh_data.proto = MESH_PROTO_JSON;
+                tx_msg_node_connected((char*)tx_buf, sizeof(tx_buf), sta_mac, mesh_parent_addr.addr, mesh_layer);
+                mesh_data.size = strlen((char*)tx_buf) + 1;
 
-    while (is_running) {
-        /* non-root do nothing but print */
-        if (!esp_mesh_is_root()) {
-            ESP_LOGI(TAG, "layer:%d, rtableSize:%d, %s", mesh_layer,
-                     esp_mesh_get_routing_table_size(),
-                     (is_mesh_connected && esp_mesh_is_root()) ? "ROOT" : is_mesh_connected ? "NODE" : "DISCONNECT");
-            vTaskDelay(10 * 1000 / portTICK_PERIOD_MS);
-            continue;
-        }
-        esp_mesh_get_routing_table((mesh_addr_t *) &route_table,
-                                   CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &route_table_size);
-        if (send_count && !(send_count % 100)) {
-            ESP_LOGI(TAG, "size:%d/%d,send_count:%d", route_table_size,
-                     esp_mesh_get_routing_table_size(), send_count);
-        }
+                err = esp_mesh_send(
+                    NULL,       // mesh_addr_t *to, (use NULL to send to root node)
+                    &mesh_data, // mesh_data_t *data           
+                    0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+                    NULL,       // mesh_opt_t opt[]
+                    0           // int opt_count
+                );
 
-        send_count++;
-        tx_buf[3] = (send_count >> 24) & 0xff;
-        tx_buf[2] = (send_count >> 16) & 0xff;
-        tx_buf[1] = (send_count >> 8) & 0xff;
-        tx_buf[0] = (send_count >> 0) & 0xff;
-
-        for (i = 0; i < route_table_size; i++) {
-            err = esp_mesh_send(&route_table[i], &data, MESH_DATA_P2P, NULL, 0);
-            if (err) {
-                ESP_LOGE(TAG,
-                         "[ROOT-2-UNICAST:%d][L:%d]parent:"MACSTR" to "MACSTR", heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
-                         send_count, mesh_layer, MAC2STR(mesh_parent_addr.addr),
-                         MAC2STR(route_table[i].addr), esp_get_minimum_free_heap_size(),
-                         err, data.proto, data.tos);
-            } else if (!(send_count % 100)) {
-                ESP_LOGW(TAG,
-                         "[ROOT-2-UNICAST:%d][L:%d][rtableSize:%d]parent:"MACSTR" to "MACSTR", heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
-                         send_count, mesh_layer,
-                         esp_mesh_get_routing_table_size(),
-                         MAC2STR(mesh_parent_addr.addr),
-                         MAC2STR(route_table[i].addr), esp_get_minimum_free_heap_size(),
-                         err, data.proto, data.tos);
+                if (err) {
+                    ESP_LOGE(TAG, "'esp_mesh_send' fail, msg_id:%i, heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
+                        MSG_NODE_CONNECTED, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
+                }
             }
         }
-        /* if route_table_size is less than 10, add delay to avoid watchdog in this task. */
-        if (route_table_size < 10) {
-            vTaskDelay(1 * 1000 / portTICK_PERIOD_MS);
-        }
+        vTaskDelay(1 * 1000 / portTICK_PERIOD_MS);
+        count++;
     }
     vTaskDelete(NULL);
 }
 
 void mesh_p2p_rx_task(void *arg)
 {
-    int recv_count = 0;
     esp_err_t err;
     mesh_addr_t from;
-    int send_count = 0;
-    mesh_data_t data;
+    mesh_data_t mesh_data;
     int flag = 0;
-    data.data = rx_buf;
-    data.size = RX_SIZE;
-    is_running = true;
+    mesh_data.data = rx_buf;
+    mesh_data.size = RX_SIZE;
 
-    while (is_running) {
-        data.size = RX_SIZE;
-        err = esp_mesh_recv(&from, &data, portMAX_DELAY, &flag, NULL, 0);
-        if (err != ESP_OK || !data.size) {
-            ESP_LOGE(TAG, "err:0x%x, size:%d", err, data.size);
+    while (1) {
+        mesh_data.size = RX_SIZE;
+        err = esp_mesh_recv(&from, &mesh_data, portMAX_DELAY, &flag, NULL, 0);
+        if (err != ESP_OK || !mesh_data.size) {
+            ESP_LOGE(TAG, "'esp_mesh_recv' err:0x%x, size:%d", err, mesh_data.size);
             continue;
         }
-        /* extract send count */
-        if (data.size >= sizeof(send_count)) {
-            send_count = (data.data[3] << 24) | (data.data[2] << 16)
-                         | (data.data[1] << 8) | data.data[0];
+        if(strlen((char*)mesh_data.data) < RX_SIZE)
+        {
+            ESP_LOGI(TAG, "Recv from "MACSTR": %s", MAC2STR(from.addr), (char*)mesh_data.data);
         }
-        recv_count++;
 
-        if (!(recv_count % 1)) {
-            ESP_LOGW(TAG,
-                     "[#RX:%d/%d][L:%d] parent:"MACSTR", receive from "MACSTR", size:%d, heap:%" PRId32 ", flag:%d[err:0x%x, proto:%d, tos:%d]",
-                     recv_count, send_count, mesh_layer,
-                     MAC2STR(mesh_parent_addr.addr), MAC2STR(from.addr),
-                     data.size, esp_get_minimum_free_heap_size(), flag, err, data.proto,
-                     data.tos);
+        if(mesh_data.proto == MESH_PROTO_JSON)
+        {
+            cJSON *root = cJSON_Parse((char*)mesh_data.data);
+            if(root == NULL) {
+                ESP_LOGE(TAG, "Fail to parse JSON");
+                continue;
+            }
+
+            cJSON *msg_id_json = cJSON_GetObjectItem(root, "msg_id");
+
+            bool parse_fail = false;
+            if(msg_id_json && cJSON_IsNumber(msg_id_json)) {
+                switch (msg_id_json->valueint)
+                {
+                case MSG_NODE_CONNECTED:
+                    if(esp_mesh_is_root()) {
+                        uint8_t node_addr[6];
+                        uint8_t parent_addr[6];
+                        int layer;
+                        if(rx_msg_node_connected(root, node_addr, parent_addr, &layer)) {
+                            update_tree_with_node(node_addr, parent_addr, layer);
+                        } else {
+                            parse_fail = true;
+                        }
+                    }    
+                    break;
+                
+                default:
+                    break;
+                }    
+            }
+
+            if(parse_fail) {
+                 ESP_LOGE(TAG, "Fail to parse json msg id: %i", MSG_NODE_CONNECTED);
+            }
+
+            // Libera a memória usada pelo objeto JSON
+            cJSON_Delete(root);
+
         }
     }
     vTaskDelete(NULL);
@@ -211,6 +215,10 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGW(TAG, "<MESH_EVENT_ROUTING_TABLE_REMOVE>remove %d, new:%d, layer:%d",
                  routing_table->rt_size_change,
                  routing_table->rt_size_new, mesh_layer);
+        
+        if (esp_mesh_is_root()) {         
+            remove_non_existing_node_from_tree();
+        }
     }
     break;
     case MESH_EVENT_NO_PARENT_FOUND: {
@@ -237,11 +245,14 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         if (esp_mesh_is_root()) {
             esp_netif_dhcpc_stop(netif_sta);
             esp_netif_dhcpc_start(netif_sta);
+            
             #ifdef DEFAULT_USE_STATIC_IP
             set_static_ip(netif_sta);
             #endif
-        }
 
+            clear_node_tree();
+           // start_tree_monitor();
+        }
         esp_mesh_comm_p2p_start();
     }
     break;
@@ -272,6 +283,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
     break;
     case MESH_EVENT_ROOT_ADDRESS: {
         mesh_event_root_address_t *root_addr = (mesh_event_root_address_t *)event_data;
+        memcpy(root_address, root_addr->addr, 6);
         ESP_LOGI(TAG, "<MESH_EVENT_ROOT_ADDRESS>root address:"MACSTR"",
                  MAC2STR(root_addr->addr));
     }
@@ -462,7 +474,7 @@ void start_mesh(char* router_ssid, char* router_password, uint8_t mesh_id[6], ch
 
     /* mesh softAP */
     ESP_ERROR_CHECK(esp_mesh_set_ap_authmode(CONFIG_MESH_AP_AUTHMODE));
-    cfg.mesh_ap.max_connection = CONFIG_MESH_AP_CONNECTIONS;
+    cfg.mesh_ap.max_connection = MAX_MESH_AP_CONNECTIONS_ON_EACH_NODE;
     cfg.mesh_ap.nonmesh_max_connection = CONFIG_MESH_NON_MESH_AP_CONNECTIONS;
     if((cfg.mesh_ap.max_connection + cfg.mesh_ap.nonmesh_max_connection) > 10) {
         ESP_LOGE(TAG, "Config ultrapassa o maximo de conexoes permitidas");

@@ -12,6 +12,7 @@
 #include "app_config.h"
 #include "utils.h"
 #include "mesh_network.h"
+#include "html_builder.h"
 
 // Define a macro MIN se não estiver definida
 #ifndef MIN
@@ -23,9 +24,9 @@ static httpd_handle_t webserver_handle = NULL;
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
-    // Obtém o endereço MAC
-    uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    // Obtém o endereço MAC deste dispositvo
+    uint8_t sta_mac[6];
+    esp_read_mac(sta_mac, ESP_MAC_WIFI_STA);
 
     // Get WiFi router credentials from NVS
     char router_ssid[MAX_SSID_LEN];
@@ -38,105 +39,23 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     uint8_t mesh_id[6];
     char mesh_password[MAX_PASS_LEN];
     nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
-    
-    char response[3000];
-    
-    strcpy(response, 
-    "<!DOCTYPE html>"
-       "<html>"
-	       "<head>"
-		       "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-		       "<style>"
-			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 400px; max-width: 90%; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
-			       ".container { text-align: center; background-color: #fff; padding: 20px; width: auto; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-			       "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
-			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }"
-			       "input[type='submit']:hover { background-color: #45a049; }"
-		       "</style>"
-                "<script>"
-                    "function formatMeshID(e) {"
-                    "  var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');"
-                    "  e.target.value = r.match(/.{1,2}/g).join('-');"
-                    "}"
-                    "function togglePassword(id) {"
-                    "  var x = document.getElementById(id);"
-                    "  if (x.type === 'password') {"
-                    "    x.type = 'text';"
-                    "  } else {"
-                    "    x.type = 'password';"
-                    "  }"
-                    "}"
-                "</script>"
-	       "</head>"
-	       "<body>");
-    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
 
-    snprintf(response, sizeof(response),
-               "<br/>"
-		       "<div class='container'>"
-                   "<h2>Device Info</h2>"
-                   "<p>MAC address: "MACSTR"</p>"
-		       "</div>"
-               "<br/>"
-		       "<div class='container'>"
-			       "<form action='/set_wifi' method='post'>"
-                        "<h2>Configure WiFi Router</h2>"
-                        "<label for='router_ssid'>Router SSID:</label><br>"
-                        "<input type='text' id='router_ssid' name='router_ssid' value='%s' required><br>"
-                        "<label for='router_password'>Router Password:</label><br>"
-                        "<input type='password' id='router_password' name='router_password' value='%s' required><br/>"
-                        "<input type='checkbox' onclick='togglePassword(\"router_password\")'> Show Password<br/>"
-                        "<br/>"
-                        "<h2>Configure Mesh Network</h2>"
-                        "<label for='mesh_id'>Mesh ID:</label><br>"
-                        "<input type='text' id='mesh_id' name='mesh_id' value='%02X-%02X-%02X-%02X-%02X-%02X' required oninput='formatMeshID(event)' maxlength='17'><br>" //NAO PODE SEPARADOR ':', FORM CODIFICA DIFERENTE AO FAZER POST
-                        "<label for='mesh_password'>Mesh Password:</label><br>"
-                        "<input type='password' id='mesh_password' name='mesh_password' value='%s' required><br/>"
-                        "<input type='checkbox' onclick='togglePassword(\"mesh_password\")'> Show Password<br/>"
-                        "<br/>"
-                        "<input type='submit' value='Update Config'>"
-			       "</form>"
-		       "</div>",
-                MAC2STR(mac),
-                err_credentials == ESP_OK? router_ssid : "",
-                err_credentials == ESP_OK? router_password : "",
-                mesh_id[0],mesh_id[1],mesh_id[2],mesh_id[3],mesh_id[4],mesh_id[5],
-                mesh_password);
-    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
-
-    if(nvs_get_app_mode() == APP_MODE_WIFI_MESH_NETWORK && is_mesh_parent_connected()) {
-        strcpy(response, 
-                "<br/>"
-                "<div class='container'>"
-                    "<h2>Nodes in Mesh Network</h2>"
-                    "<ul>");
-        httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
-
-        // Obtém a tabela de roteamento da rede mesh
-        mesh_addr_t routing_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
-        int routing_table_size = 0;
+    // Obtém a tabela de roteamento da rede mesh
+    mesh_addr_t routing_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
+    int routing_table_size = 0;
+    if(is_mesh_parent_connected()) {
         esp_mesh_get_routing_table((mesh_addr_t *)&routing_table, CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &routing_table_size);
-        for (int i = 0; i < routing_table_size; i++) {
-            snprintf(response, sizeof(response),
-                        "<li>"MACSTR"</li>", 
-                        MAC2STR(routing_table[i].addr));            
-            httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
-        }
-        
-        strcpy(response,
-                    "</ul>"
-                "</div>"
-                "<br/>");
-        httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
     }
 
-    snprintf(response, sizeof(response), 
-            "</body>"
-        "</html>");
-    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
-
-    //When you are finished sending all your chunks, you must call this function with buf_len as 0.
-    httpd_resp_send_chunk(req, response, 0);
+    send_root_html(
+        req, 
+        sta_mac,
+        err_credentials == ESP_OK? router_ssid : "",
+        err_credentials == ESP_OK? router_password : "",
+        mesh_id,
+        mesh_password,
+        routing_table,
+        routing_table_size);
 
     return ESP_OK;
     
@@ -184,34 +103,18 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         nvs_set_wifi_credentials(router_ssid, router_password);
         nvs_set_mesh_credentials(mesh_id, mesh_password);
 
-        const char *response = "<!DOCTYPE html>"
-           "<html>"
-               "<head>"
-                   "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                   "<style>"
-                        "body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
-                        ".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-                   "</style>"
-               "</head>"
-               "<body>"
-                   "<div class='container'>"
-                       "<h2>WiFi settings updated</h2>"
-                       "<p>Restarting...</p>"
-                   "</div>"
-               "</body>"
-           "</html>";
-
-        httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Da tempo pra enviar o retorno HTTP
-
+        send_set_wifi_html(req, true);
+        
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Da tempo pra enviar o retorno HTTP antes de mudar para o modo MESH e resetar a ESP
         nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
     } else {
-        httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
+        send_set_wifi_html(req, false);
     }
 
     free(buf);
     return ESP_OK;
 }
+
 
 // Definição da rota raiz
 static const httpd_uri_t root = {

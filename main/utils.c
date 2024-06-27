@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include "esp_chip_info.h"
 #include "esp_flash.h"
@@ -9,10 +10,11 @@
 #include "esp_log.h"
 #include "esp_mesh.h"
 #include "esp_mesh_internal.h"
+#include "esp_http_server.h"
 
 #include "utils.h"
 
-static const char *TAG = "UTILS";
+//static const char *TAG = "UTILS";
 
 void print_chip_info(void) {
     /* Print chip information */
@@ -53,4 +55,28 @@ void mac_str_to_bytes(const char *mac_str, uint8_t *mac_bytes) {
     for (int i = 0; i < 6; ++i) {
         sscanf(mac_str + 3 * i, "%2hhx", &mac_bytes[i]);
     }
+}
+
+void mac_to_string(uint8_t mac[6], char *mac_str) {
+    sprintf(mac_str, MACSTR, MAC2STR(mac));
+}
+
+// Função para comparar endereços MAC
+bool compare_mac(uint8_t mac1[6], uint8_t mac2[6]) {
+    return memcmp(mac1, mac2, 6) == 0;
+}
+
+//envia resposta string a uma requisicao http
+void httpd_str_resp_send_chunk(httpd_req_t *req, char *response) {
+    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+}
+
+// Formata resposta string a uma requisicao http, e envia
+void httpd_str_format_resp_send_chunk(httpd_req_t *req, char *buffer, size_t buffer_size, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, buffer_size, format, args);
+    va_end(args);
+
+    httpd_resp_send_chunk(req, buffer, HTTPD_RESP_USE_STRLEN);
 }

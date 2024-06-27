@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mesh Network Graph</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        svg {
+            border: 1px solid black;
+            width: 100%;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node rect {
+            stroke: steelblue;
+            stroke-width: 3px;
+            rx: 10;
+            ry: 10;
+        }
+
+        .node text {
+            font: 12px sans-serif;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+
+        button {
+            margin: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Mesh Network Graph</h1>
+    <div>
+        <button id="toggle-button">Collapse All</button>
+    </div>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+        const data = {
+            "name": "24:6F:28:3A:7B:9C",
+            "children": [
+                {
+                    "name": "24:6F:28:3A:7B:9D",
+                    "layer": 1,
+                    "children": [
+                        {
+                            "name": "24:6F:28:3A:7B:9E",
+                            "layer": 2,
+                            "children": [
+                                {
+                                    "name": "24:6F:28:3A:7B:9F",
+                                    "layer": 3,
+                                    "children": [
+                                        {
+                                            "name": "24:6F:28:3A:7B:9E",
+                                            "layer": 4,
+                                            "children": [
+                                                {
+                                                    "name": "24:6F:28:3A:7B:9F",
+                                                    "layer": 5
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "name": "24:6F:28:3A:7B:A0",
+                                            "layer": 4
+                                        },
+                                        {
+                                            "name": "24:6F:28:3A:7B:9E",
+                                            "layer": 4,
+                                            "children": [
+                                                {
+                                                    "name": "24:6F:28:3A:7B:9F",
+                                                    "layer": 5
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "name": "24:6F:28:3A:7B:A0",
+                                            "layer": 4
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "name": "24:6F:28:3A:7B:A0",
+                            "layer": 2
+                        },
+                        {
+                            "name": "24:6F:28:3A:7B:9E",
+                            "layer": 2,
+                            "children": [
+                                {
+                                    "name": "24:6F:28:3A:7B:9F",
+                                    "layer": 3
+                                }
+                            ]
+                        },
+                        {
+                            "name": "24:6F:28:3A:7B:A0",
+                            "layer": 2
+                        }
+                    ]
+                },
+                {
+                    "name": "24:6F:28:3A:7B:A1",
+                    "layer": 1
+                },
+                {
+                    "name": "24:6F:28:3A:7B:A2",
+                    "layer": 1,
+                    "children": [
+                        {
+                            "name": "24:6F:28:3A:7B:A3",
+                            "layer": 2
+                        },
+                        {
+                            "name": "24:6F:28:3A:7B:A4",
+                            "layer": 2
+                        }
+                    ]
+                }
+            ]
+        };
+
+        const width = 960;
+        const height = 1200;
+
+        const svg = d3.select("body").append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g")
+            .attr("transform", "translate(40,40)"); // Adicionei um deslocamento vertical
+
+        const tree = d3.tree().size([height - 80, width - 160]); // Ajustei a altura disponível
+
+        const root = d3.hierarchy(data, d => d.children);
+        root.x0 = (height - 80) / 2; // Ajustei a posição inicial do nó raiz
+        root.y0 = 0;
+
+        let i = 0;
+        let allCollapsed = false;
+
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+
+        function expand(d) {
+            if (d._children) {
+                d.children = d._children;
+                d.children.forEach(expand);
+                d._children = null;
+            }
+        }
+
+        function collapseAll(d) {
+            collapse(d);
+            if (d.children) {
+                d.children.forEach(collapseAll);
+            }
+            if (d._children) {
+                d._children.forEach(collapseAll);
+            }
+        }
+
+        function expandAll(d) {
+            expand(d);
+            if (d.children) {
+                d.children.forEach(expandAll);
+            }
+        }
+
+        root.children.forEach(collapse);
+        update(root);
+
+        document.getElementById('toggle-button').addEventListener('click', () => {
+            if (allCollapsed) {
+                expandAll(root);
+                update(root);
+                document.getElementById('toggle-button').textContent = 'Collapse All';
+            } else {
+                collapseAll(root);
+                update(root);
+                document.getElementById('toggle-button').textContent = 'Expand All';
+            }
+            allCollapsed = !allCollapsed;
+        });
+
+        function update(source) {
+            const treeData = tree(root);
+            const nodes = treeData.descendants();
+            const links = treeData.descendants().slice(1);
+
+            nodes.forEach(d => {
+                d.y = d.depth * 120;  // Ajuste aqui a distância entre camadas
+            });
+
+            const node = svg.selectAll('g.node')
+                .data(nodes, d => d.id || (d.id = ++i));
+
+            const nodeEnter = node.enter().append('g')
+                .attr('class', 'node')
+                .attr('transform', d => `translate(${source.x0},${source.y0})`)
+                .on('click', (event, d) => {
+                    if (d.children) {
+                        d._children = d.children;
+                        d.children = null;
+                    } else {
+                        d.children = d._children;
+                        d._children = null;
+                    }
+                    update(d);
+                });
+
+            nodeEnter.append('rect')
+                .attr('width', 120)
+                .attr('height', 30)
+                .attr('x', -60)
+                .attr('y', -15)
+                .attr('fill', d => {
+                    switch (d.data.layer) {
+                        case 0: return '#ffcccc';
+                        case 1: return '#ffebcc';
+                        case 2: return '#ffffcc';
+                        case 3: return '#ccffcc';
+                        case 4: return '#cceeff';
+                        case 5: return '#ccccff';
+                        default: return '#fff';
+                    }
+                });
+
+            nodeEnter.append('text')
+                .attr('dy', 3)
+                .attr('x', 0)
+                .style('text-anchor', 'middle')
+                .text(d => d.data.name);
+
+            const nodeUpdate = nodeEnter.merge(node);
+
+            nodeUpdate.transition()
+                .duration(750)
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+
+            nodeUpdate.select('rect')
+                .attr('width', 120)
+                .attr('height', 30)
+                .attr('x', -60)
+                .attr('y', -15)
+                .attr('fill', d => {
+                    switch (d.data.layer) {
+                        case 0: return '#ffcccc';
+                        case 1: return '#ffebcc';
+                        case 2: return '#ffffcc';
+                        case 3: return '#ccffcc';
+                        case 4: return '#cceeff';
+                        case 5: return '#ccccff';
+                        default: return '#fff';
+                    }
+                });
+
+            const nodeExit = node.exit().transition()
+                .duration(750)
+                .attr('transform', d => `translate(${source.x},${source.y})`)
+                .remove();
+
+            const link = svg.selectAll('path.link')
+                .data(links, d => d.id);
+
+            const linkEnter = link.enter().insert('path', 'g')
+                .attr('class', 'link')
+                .attr('d', d => {
+                    const o = { x: source.x0, y: source.y0 };
+                    return diagonal(o, o);
+                });
+
+            linkEnter.transition()
+                .duration(750)
+                .attr('d', d => diagonal(d, d.parent));
+
+            link.transition()
+                .duration(750)
+                .attr('d', d => diagonal(d, d.parent));
+
+            link.exit().transition()
+                .duration(750)
+                .attr('d', d => {
+                    const o = { x: source.x, y: source.y };
+                    return diagonal(o, o);
+                })
+                .remove();
+
+            nodes.forEach(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+
+            function diagonal(s, d) {
+                return `M${s.x},${s.y}
+                        C${s.x},${(s.y + d.y) / 2}
+                         ${d.x},${(s.y + d.y) / 2}
+                         ${d.x},${d.y}`;
+            }
+        }
+    </script>
+</body>
+
+</html>
