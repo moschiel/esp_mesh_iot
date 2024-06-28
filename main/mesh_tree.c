@@ -39,10 +39,10 @@ static void give_tree_mutex() {
 
 static void log_tree(void) {
     ESP_LOGW(TAG, "Tree Updated, Node Count: %i", tree_node_count + 1);
-    ESP_LOGW(TAG, "[1] root:"MACSTR", layer:1", MAC2STR(STA_MAC_address));
+    ESP_LOGW(TAG, "[1] root:"MACSTREND", layer:1", MAC2STREND(STA_MAC_address));
     for (size_t i = 0; i < tree_node_count; i++) {
-        ESP_LOGW(TAG, "[%i] node:"MACSTR", parent:"MACSTR", layer:%i", 
-            (i+2), MAC2STR(_mesh_tree_[i].node_sta_addr), MAC2STR(_mesh_tree_[i].parent_sta_addr), _mesh_tree_[i].layer);
+        ESP_LOGW(TAG, "[%i] node:"MACSTREND", parent:"MACSTREND", layer:%i", 
+            (i+2), MAC2STREND(_mesh_tree_[i].node_sta_addr), MAC2STREND(_mesh_tree_[i].parent_sta_addr), _mesh_tree_[i].layer);
     }
 }
 
@@ -169,6 +169,7 @@ static void add_node_to_json(cJSON *parent, MeshNode *node, int layer) {
         }
     }
 
+    // Add Node (Layer + 1) as a child of Parent Node (Layer)
     cJSON_AddItemToArray(parent, node_json);
 }
 
@@ -177,31 +178,40 @@ char* build_mesh_tree_json(void) {
     if (take_tree_mutex()) {
         // Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
         char mac_str[9];
-        uint8_t* root_addr = STA_MAC_address;
-        format_mac(mac_str, root_addr);
+        format_mac(mac_str, STA_MAC_address);
 
-        cJSON *root = cJSON_CreateObject();
-        cJSON_AddStringToObject(root, "name", mac_str);
-        cJSON_AddNumberToObject(root, "layer", 1);
+        //WiFi Router Node at layer 0
+        cJSON *router_node = cJSON_CreateObject();
+        cJSON_AddStringToObject(router_node, "name", "WiFi Router");
+        cJSON_AddNumberToObject(router_node, "layer", 0);
+        cJSON *router_children = cJSON_AddArrayToObject(router_node, "children");
+
+        //Root Node at layer 1
+        cJSON *root_node = cJSON_CreateObject();
+        cJSON_AddNumberToObject(root_node, "layer", 1);
+        cJSON_AddStringToObject(root_node, "name", mac_str);
         
-        cJSON *children;
+        //Add Other Nodes (Starting at Layer 2) as children of Root Node (Layer 1)
+        cJSON *root_node_children;
         bool has_children = false;
-
         for (int i = 0; i < tree_node_count; i++) {
-            if (memcmp(_mesh_tree_[i].parent_sta_addr, root_addr, 6) == 0) {
+            if (memcmp(_mesh_tree_[i].parent_sta_addr, STA_MAC_address, 6) == 0) {
                 if(has_children == false) {
                     has_children = true;
-                    children = cJSON_AddArrayToObject(root, "children");
+                    root_node_children = cJSON_AddArrayToObject(root_node, "children");
                 }
-                add_node_to_json(children, &_mesh_tree_[i], 2);
+                add_node_to_json(root_node_children, &_mesh_tree_[i], 2);
             }
         }
 
-        char* ret = cJSON_PrintUnformatted(root); //json em uma unica linha
-        //char* ret = cJSON_Print(root); //tem endentacao e pula linha, mas fica maior
+        // Add Root Node (Layer 1) as a child of Wifi Router Node (Layer 0)
+        cJSON_AddItemToArray(router_children, root_node);
+
+        char* ret = cJSON_PrintUnformatted(router_node); //json em uma unica linha
+        //char* ret = cJSON_Print(router); //tem endentacao e pula linha, mas fica maior
 
         // Limpar memória alocada para o JSON
-        cJSON_Delete(root);
+        cJSON_Delete(router_node);
 
         give_tree_mutex();
         // quem usar esse retorno, deve lembrar de dar free nele

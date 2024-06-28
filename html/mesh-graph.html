@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mesh Network Graph</title>
+    <title>Mesh Network Tree</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,36 +12,53 @@
             padding: 20px;
             background-color: #f4f4f4;
         }
+
         h1 {
             color: #333;
             text-align: center;
         }
+
         .container {
             width: 100%;
             max-width: 960px;
             margin: 0 auto;
         }
+
+        .svg-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            position: relative;
+        }
+
         svg {
             width: 100%;
             height: auto;
         }
+
         .node {
             cursor: pointer;
         }
+
         .node rect {
             stroke: steelblue;
             stroke-width: 3px;
             rx: 10;
             ry: 10;
         }
+
         .node text {
             font: 12px sans-serif;
             font-weight: bold;
         }
+
         .link {
             fill: none;
             stroke: #666;
         }
+
         button {
             margin: 20px auto;
             padding: 10px 20px;
@@ -57,10 +75,12 @@
                 x: -110px;
                 y: -40px;
             }
+
             .node text {
-                font: 40px sans-serif;   
+                font: 40px sans-serif;
                 font-weight: bold;
             }
+
             .link {
                 stroke-width: 4px;
             }
@@ -74,85 +94,51 @@
                 x: -60px;
                 y: -20px;
             }
+
             .node text {
                 font: 18px sans-serif;
                 font-weight: bold;
             }
+
             .link {
                 stroke-width: 2px;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Mesh Network Tree</h1>
         <button id="toggle-button">Collapse All</button>
-        <div style="width: 100%; max-width: 960px;">
-            <svg viewBox="0 0 960 800" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="svg-container">
+            <svg viewBox="0 0 960 800" preserveAspectRatio="xMidYMid meet">
+                <g class="zoomable">
+                    <!-- conteudo do gráfico será adicionado aqui -->
+                </g>
+            </svg>
         </div>
     </div>
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <script>
-        const data = {
-            "name": "28:3A:7B",
-            "children": [
-                {
-                    "name": "28:3A:7C",
-                    "layer": 1,
-                    "children": [
-                        {
-                            "name": "28:3A:7D",
-                            "layer": 2,
-                            "children": [
-                                {
-                                    "name": "28:3A:7E",
-                                    "layer": 3
-                                }
-                            ]
-                        },
-                        {
-                            "name": "28:3A:7F",
-                            "layer": 2
-                        }
-                    ]
-                },
-                {
-                    "name": "28:3A:80",
-                    "layer": 1
-                },
-                {
-                    "name": "28:3A:81",
-                    "layer": 1,
-                    "children": [
-                        {
-                            "name": "28:3A:82",
-                            "layer": 2
-                        },
-                        {
-                            "name": "28:3A:83",
-                            "layer": 2
-                        }
-                    ]
-                }
-            ]
-        };
-
+        const data = { "name": "WiFi Router", "layer": 0, "children": [{ "layer": 1, "name": "58:67:48", "children": [{ "name": "30:57:7C", "layer": 2 }, { "name": "DE:2E:94", "layer": 2, "children": [{ "name": "DD:80:9C", "layer": 3 }] }] }] };
         const svg = d3.select("svg");
         const width = +svg.attr("viewBox").split(" ")[2];
         const height = +svg.attr("viewBox").split(" ")[3];
-
-        const g = svg.append("g").attr("transform", "translate(40,40)");
-
+        const zoomable = svg.select(".zoomable");
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", (event) => {
+                zoomable.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+        const g = zoomable.append("g").attr("transform", "translate(40,40)");
         const tree = d3.tree().size([height, width - 160]);
-
         const root = d3.hierarchy(data, d => d.children);
         root.x0 = height / 2;
         root.y0 = 0;
-
         let i = 0;
         let allCollapsed = false;
-
         function collapse(d) {
             if (d.children) {
                 d._children = d.children;
@@ -160,7 +146,6 @@
                 d.children = null;
             }
         }
-
         function expand(d) {
             if (d._children) {
                 d.children = d._children;
@@ -168,7 +153,6 @@
                 d._children = null;
             }
         }
-
         function collapseAll(d) {
             collapse(d);
             if (d.children) {
@@ -178,20 +162,32 @@
                 d._children.forEach(collapseAll);
             }
         }
-
         function expandAll(d) {
             expand(d);
             if (d.children) {
                 d.children.forEach(expandAll);
             }
         }
-
-		if(root.children) {
-			root.children.forEach(allCollapsed ? collapse : expand);
-		}
-
+        function getColor(layer) {
+            switch (layer) {
+                case 0: return '#ffcccc';
+                case 1: return '#ffebcc';
+                case 2: return '#ffffcc';
+                case 3: return '#ccffcc';
+                case 4: return '#cceeff';
+                case 5: return '#ccccff';
+                default: return '#fff';
+            }
+        }
+        function getClass(layer) {
+            switch (layer) {
+                default: return 'node';
+            }
+        }
+        if (root.children) {
+            root.children.forEach(allCollapsed ? collapse : expand);
+        }
         update(root);
-
         document.getElementById('toggle-button').addEventListener('click', () => {
             if (allCollapsed) {
                 expandAll(root);
@@ -204,112 +200,57 @@
             }
             allCollapsed = !allCollapsed;
         });
-
         function update(source) {
             const treeData = tree(root);
             const nodes = treeData.descendants();
             const links = treeData.descendants().slice(1);
-
             nodes.forEach(d => {
                 d.y = d.depth * 180;
             });
-
-            const node = g.selectAll('g.node')
-                .data(nodes, d => d.id || (d.id = ++i));
-
-            const nodeEnter = node.enter().append('g')
-                .attr('class', 'node')
-                .attr('transform', d => `translate(${source.x0},${source.y0})`)
-                .on('click', (event, d) => {
-                    if (d.children) {
-                        d._children = d.children;
-                        d.children = null;
-                    } else {
-                        d.children = d._children;
-                        d._children = null;
-                    }
-                    update(d);
-                });
-
+            const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++i));
+            const nodeEnter = node.enter().append('g').attr('class', d => getClass(d.data.layer)).attr('transform', d => `translate(${source.x0},${source.y0})`).on('click', (event, d) => {
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                } else {
+                    d.children = d._children;
+                    d._children = null;
+                }
+                update(d);
+            });
             nodeEnter.append('rect')
-                .attr('fill', d => {
-                    switch (d.data.layer) {
-                        case 0: return '#ffcccc';
-                        case 1: return '#ffebcc';
-                        case 2: return '#ffffcc';
-                        case 3: return '#ccffcc';
-                        case 4: return '#cceeff';
-                        case 5: return '#ccccff';
-                        default: return '#fff';
-                    }
-                });
-
-            nodeEnter.append('text')
-                .style('text-anchor', 'middle')
-                .text(d => d.data.name);
-
+                .attr('fill', d => getColor(d.data.layer))
+                .attr('class', d => getClass(d.data.layer));
+            nodeEnter.append('text').style('text-anchor', 'middle').text(d => d.data.name);
             const nodeUpdate = nodeEnter.merge(node);
-
-            nodeUpdate.transition()
-                .duration(750)
-                .attr('transform', d => `translate(${d.x},${d.y})`);
-
+            nodeUpdate.transition().duration(750).attr('transform', d => `translate(${d.x},${d.y})`);
             nodeUpdate.select('rect')
-                .attr('fill', d => {
-                    switch (d.data.layer) {
-                        case 0: return '#ffcccc';
-                        case 1: return '#ffebcc';
-                        case 2: return '#ffffcc';
-                        case 3: return '#ccffcc';
-                        case 4: return '#cceeff';
-                        case 5: return '#ccccff';
-                        default: return '#fff';
-                    }
-                });
-
-            const nodeExit = node.exit().transition()
-                .duration(750)
-                .attr('transform', d => `translate(${source.x},${source.y})`)
-                .remove();
-
-            const link = g.selectAll('path.link')
-                .data(links, d => d.id);
-
-            const linkEnter = link.enter().insert('path', 'g')
-                .attr('class', 'link')
-                .attr('d', d => {
-                    const o = {x: source.x0, y: source.y0};
-                    return diagonal(o, o);
-                });
-
-            linkEnter.transition()
-                .duration(750)
-                .attr('d', d => diagonal(d, d.parent));
-
-            link.transition()
-                .duration(750)
-                .attr('d', d => diagonal(d, d.parent));
-
-            link.exit().transition()
-                .duration(750)
-                .attr('d', d => {
-                    const o = {x: source.x, y: source.y};
-                    return diagonal(o, o);
-                })
-                .remove();
-
+                .attr('fill', d => getColor(d.data.layer))
+                .attr('class', d => getClass(d.data.layer));
+            const nodeExit = node.exit().transition().duration(750).attr('transform', d => `translate(${source.x},${source.y})`).remove();
+            const link = g.selectAll('path.link').data(links, d => d.id);
+            const linkEnter = link.enter().insert('path', 'g').attr('class', 'link').attr('d', d => {
+                const o = { x: source.x0, y: source.y0 };
+                return diagonal(o, o);
+            });
+            linkEnter.transition().duration(750).attr('d', d => diagonal(d, d.parent));
+            link.transition().duration(750).attr('d', d => diagonal(d, d.parent));
+            link.exit().transition().duration(750).attr('d', d => {
+                const o = { x: source.x, y: source.y };
+                return diagonal(o, o);
+            }).remove();
             nodes.forEach(d => {
                 d.x0 = d.x;
                 d.y0 = d.y;
             });
-
             function diagonal(s, d) {
                 return `M${s.x},${s.y}
-                        C${s.x},${(s.y + d.y) / 2}
-                         ${d.x},${(s.y + d.y) / 2}
-                         ${d.x},${d.y}`;
+                    C${s.x},${(s.y + d.y) / 2}
+                    ${d.x},${(s.y + d.y) / 2}
+                    ${d.x},${d.y}`;
             }
         }
     </script>
 </body>
+
 </html>
