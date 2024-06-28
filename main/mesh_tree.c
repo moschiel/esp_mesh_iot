@@ -2,55 +2,74 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_mesh.h"
+#include "cJSON.h"
 
 #include "mesh_tree.h"
 #include "utils.h"
 #include "mesh_network.h"
 
+static void add_node_to_json(cJSON *parent, MeshNode *node, int layer);
+
+
 static char* TAG = "MESH_TREE";
-static int node_count = 0;
+static int tree_node_count = 0;
 static SemaphoreHandle_t xMutexTree;
 //static bool tree_monitor_started = false;
 
-MeshNode mesh_nodes[CONFIG_MESH_ROUTE_TABLE_SIZE] = {0};
+static MeshNode _mesh_tree_[CONFIG_MESH_ROUTE_TABLE_SIZE] = {0};
 static mesh_addr_t routing_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
-static void log_tree(void) {
-    ESP_LOGW(TAG, "Tree Updated, Nodes Count: %i", node_count);
-    for (size_t i = 0; i < node_count; i++) {
-        ESP_LOGW(TAG, "(%i) node:"MACSTR", parent:"MACSTR", layer:%i", 
-            (i+1), MAC2STR(mesh_nodes[i].node_addr), MAC2STR(mesh_nodes[i].parent_addr), mesh_nodes[i].layer);
-    }
-}
+extern uint8_t STA_MAC_address[6];
 
-void update_tree_with_node(uint8_t node_addr[6], uint8_t parent_addr[6], int layer) {
+static bool take_tree_mutex() {
     if(xMutexTree == NULL) {
         xMutexTree = xSemaphoreCreateMutex();
     }
+    if(xSemaphoreTake(xMutexTree, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Fail to Take Tree Mutex");
+        return false;
+    }
 
-    if (xSemaphoreTake(xMutexTree, portMAX_DELAY) == pdTRUE) {
-        // Verifica se a combinação já existe no array ou se o node_addr já existe
+    return true;
+} 
+
+static void give_tree_mutex() {
+    xSemaphoreGive(xMutexTree);
+}
+
+static void log_tree(void) {
+    ESP_LOGW(TAG, "Tree Updated, Node Count: %i", tree_node_count + 1);
+    ESP_LOGW(TAG, "[1] root:"MACSTR", layer:1", MAC2STR(STA_MAC_address));
+    for (size_t i = 0; i < tree_node_count; i++) {
+        ESP_LOGW(TAG, "[%i] node:"MACSTR", parent:"MACSTR", layer:%i", 
+            (i+2), MAC2STR(_mesh_tree_[i].node_sta_addr), MAC2STR(_mesh_tree_[i].parent_sta_addr), _mesh_tree_[i].layer);
+    }
+}
+
+void update_tree_with_node(uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer) {
+    if (take_tree_mutex()) {
+        // Verifica se a combinação já existe no array ou se o node_sta_addr já existe
         bool node_exist = false;
         bool updated = false;
-        for (size_t i = 0; i < node_count; i++) {
-            if (compare_mac(mesh_nodes[i].node_addr, node_addr)) {
-                // Se o node_addr já existe, 
+        for (size_t i = 0; i < tree_node_count; i++) {
+            if (compare_mac(_mesh_tree_[i].node_sta_addr, node_sta_addr)) {
+                // Se o node_sta_addr já existe, 
                 node_exist = true;
-                if(compare_mac(mesh_nodes[i].parent_addr, parent_addr) == false || mesh_nodes[i].layer != layer) {
+                if(compare_mac(_mesh_tree_[i].parent_sta_addr, parent_sta_addr) == false || _mesh_tree_[i].layer != layer) {
                     //existe mas mudou o parent ou o layer, entao sobrescreve
-                    memcpy(mesh_nodes[i].parent_addr, parent_addr, 6);
-                    mesh_nodes[i].layer = layer;
+                    memcpy(_mesh_tree_[i].parent_sta_addr, parent_sta_addr, 6);
+                    _mesh_tree_[i].layer = layer;
                     updated = true;
                 }
             }
         }
 
         // Se o node não existe e há espaço no array, adiciona o novo item
-        if (node_exist == false && node_count < CONFIG_MESH_ROUTE_TABLE_SIZE) {
-            memcpy(mesh_nodes[node_count].node_addr, node_addr, 6);
-            memcpy(mesh_nodes[node_count].parent_addr, parent_addr, 6);
-            mesh_nodes[node_count].layer = layer;
-            node_count++;
+        if (node_exist == false && tree_node_count < CONFIG_MESH_ROUTE_TABLE_SIZE) {
+            memcpy(_mesh_tree_[tree_node_count].node_sta_addr, node_sta_addr, 6);
+            memcpy(_mesh_tree_[tree_node_count].parent_sta_addr, parent_sta_addr, 6);
+            _mesh_tree_[tree_node_count].layer = layer;
+            tree_node_count++;
             updated = true;
         }
 
@@ -58,55 +77,50 @@ void update_tree_with_node(uint8_t node_addr[6], uint8_t parent_addr[6], int lay
             log_tree();
         }
 
-        xSemaphoreGive(xMutexTree);
+        give_tree_mutex();
     }
 }
 
-void remove_node_from_tree(uint8_t node_addr[6]) {
+void remove_node_from_tree(uint8_t node_sta_addr[6]) {
     size_t new_count = 0;
 
-    for (size_t i = 0; i < node_count; i++) {
-        if (!compare_mac(mesh_nodes[i].node_addr, node_addr)) {
+    for (size_t i = 0; i < tree_node_count; i++) {
+        if (!compare_mac(_mesh_tree_[i].node_sta_addr, node_sta_addr)) {
             // Mantém o node no array se ele não é o que deve ser removido
             if (new_count != i) {
-                mesh_nodes[new_count] = mesh_nodes[i];
+                _mesh_tree_[new_count] = _mesh_tree_[i];
             }
             new_count++;
         }
     }
 
     //bool updated = node_count != new_count;
-    node_count = new_count;
+    tree_node_count = new_count;
     //if(updated) log_tree();
 }
 
 void clear_node_tree(void) {
-    node_count = 0;
+    tree_node_count = 0;
 }
 
-
 void remove_non_existing_node_from_tree(void) {
-    if(xMutexTree == NULL) {
-        xMutexTree = xSemaphoreCreateMutex();
-    }
-
-    if (xSemaphoreTake(xMutexTree, portMAX_DELAY) == pdTRUE) {
+    if (take_tree_mutex()) {
         int routing_table_size = 0;
         esp_mesh_get_routing_table((mesh_addr_t *)&routing_table, CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &routing_table_size);
         
         bool updated = false;
         int starting_index = 0;
 SCAN_REMOVE_NODE:
-        for(int i=starting_index; i<node_count; i++) {
+        for(int i=starting_index; i<tree_node_count; i++) {
             bool exist_on_tree = false;
             for(int k=0; k<routing_table_size;k++) {
-                if(compare_mac(mesh_nodes[i].node_addr, routing_table[k].addr)) {
+                if(compare_mac(_mesh_tree_[i].node_sta_addr, routing_table[k].addr)) {
                     exist_on_tree = true;
                     break;
                 }
             }
             if(exist_on_tree == false) {
-                remove_node_from_tree(mesh_nodes[i].node_addr);
+                remove_node_from_tree(_mesh_tree_[i].node_sta_addr);
                 updated = true;
                 starting_index = i;
                 goto SCAN_REMOVE_NODE;
@@ -116,7 +130,85 @@ SCAN_REMOVE_NODE:
         if(updated) {
             log_tree();
         }
+
+        give_tree_mutex();
     }
+}
+
+MeshNode* get_mesh_tree_table(int *mesh_tree_count) {
+    if(take_tree_mutex()) {
+        MeshNode *ret = malloc(sizeof(MeshNode) * tree_node_count);
+        memcpy(ret, &_mesh_tree_, sizeof(MeshNode) * tree_node_count);
+        *mesh_tree_count = tree_node_count;
+        
+        give_tree_mutex();
+        return ret;
+    }
+
+    return NULL;
+}
+
+static void add_node_to_json(cJSON *parent, MeshNode *node, int layer) {
+    char node_mac_str[9];
+    format_mac(node_mac_str, node->node_sta_addr);
+    
+    cJSON *node_json = cJSON_CreateObject();
+    cJSON_AddStringToObject(node_json, "name", node_mac_str);
+    cJSON_AddNumberToObject(node_json, "layer", layer);
+
+    cJSON *node_children;
+    bool has_children = false;
+
+    for (int i = 0; i < tree_node_count; i++) {
+        if (memcmp(_mesh_tree_[i].parent_sta_addr, node->node_sta_addr, 6) == 0) {
+            if(has_children == false) {
+                has_children = true;
+                node_children = cJSON_AddArrayToObject(node_json, "children");
+            }
+            add_node_to_json(node_children, &_mesh_tree_[i], layer + 1);
+        }
+    }
+
+    cJSON_AddItemToArray(parent, node_json);
+}
+
+// Função para criar o JSON da árvore de rede mesh
+char* build_mesh_tree_json(void) {
+    if (take_tree_mutex()) {
+        // Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
+        char mac_str[9];
+        uint8_t* root_addr = STA_MAC_address;
+        format_mac(mac_str, root_addr);
+
+        cJSON *root = cJSON_CreateObject();
+        cJSON_AddStringToObject(root, "name", mac_str);
+        cJSON_AddNumberToObject(root, "layer", 1);
+        
+        cJSON *children;
+        bool has_children = false;
+
+        for (int i = 0; i < tree_node_count; i++) {
+            if (memcmp(_mesh_tree_[i].parent_sta_addr, root_addr, 6) == 0) {
+                if(has_children == false) {
+                    has_children = true;
+                    children = cJSON_AddArrayToObject(root, "children");
+                }
+                add_node_to_json(children, &_mesh_tree_[i], 2);
+            }
+        }
+
+        char* ret = cJSON_PrintUnformatted(root); //json em uma unica linha
+        //char* ret = cJSON_Print(root); //tem endentacao e pula linha, mas fica maior
+
+        // Limpar memória alocada para o JSON
+        cJSON_Delete(root);
+
+        give_tree_mutex();
+        // quem usar esse retorno, deve lembrar de dar free nele
+        return ret;
+    }
+
+    return NULL;
 }
 
 /*

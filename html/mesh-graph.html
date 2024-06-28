@@ -1,139 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mesh Network Graph</title>
     <style>
         body {
-            display: flex;
-            flex-direction: column;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
         }
-
-        svg {
-            border: 1px solid black;
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
             width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
         }
-
+        svg {
+            width: 100%;
+            height: auto;
+        }
         .node {
             cursor: pointer;
         }
-
         .node rect {
             stroke: steelblue;
             stroke-width: 3px;
             rx: 10;
             ry: 10;
         }
-
         .node text {
             font: 12px sans-serif;
+            font-weight: bold;
         }
-
         .link {
             fill: none;
-            stroke: #ccc;
-            stroke-width: 2px;
+            stroke: #666;
         }
-
         button {
-            margin: 20px;
+            margin: 20px auto;
             padding: 10px 20px;
             font-size: 16px;
             cursor: pointer;
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .node rect {
+                stroke-width: 6px;
+                width: 220px;
+                height: 60px;
+                x: -110px;
+                y: -40px;
+            }
+            .node text {
+                font: 40px sans-serif;   
+                font-weight: bold;
+            }
+            .link {
+                stroke-width: 4px;
+            }
+        }
+
+        @media (min-width: 601px) {
+            .node rect {
+                stroke-width: 3px;
+                width: 120px;
+                height: 30px;
+                x: -60px;
+                y: -20px;
+            }
+            .node text {
+                font: 18px sans-serif;
+                font-weight: bold;
+            }
+            .link {
+                stroke-width: 2px;
+            }
         }
     </style>
 </head>
-
 <body>
-    <h1>Mesh Network Graph</h1>
-    <div>
+    <div class="container">
+        <h1>Mesh Network Tree</h1>
         <button id="toggle-button">Collapse All</button>
+        <div style="width: 100%; max-width: 960px;">
+            <svg viewBox="0 0 960 800" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
     </div>
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <script>
         const data = {
-            "name": "24:6F:28:3A:7B:9C",
+            "name": "28:3A:7B",
             "children": [
                 {
-                    "name": "24:6F:28:3A:7B:9D",
+                    "name": "28:3A:7C",
                     "layer": 1,
                     "children": [
                         {
-                            "name": "24:6F:28:3A:7B:9E",
+                            "name": "28:3A:7D",
                             "layer": 2,
                             "children": [
                                 {
-                                    "name": "24:6F:28:3A:7B:9F",
-                                    "layer": 3,
-                                    "children": [
-                                        {
-                                            "name": "24:6F:28:3A:7B:9E",
-                                            "layer": 4,
-                                            "children": [
-                                                {
-                                                    "name": "24:6F:28:3A:7B:9F",
-                                                    "layer": 5
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "name": "24:6F:28:3A:7B:A0",
-                                            "layer": 4
-                                        },
-                                        {
-                                            "name": "24:6F:28:3A:7B:9E",
-                                            "layer": 4,
-                                            "children": [
-                                                {
-                                                    "name": "24:6F:28:3A:7B:9F",
-                                                    "layer": 5
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "name": "24:6F:28:3A:7B:A0",
-                                            "layer": 4
-                                        }
-                                    ]
-                                }
-                            ]
-                        },
-                        {
-                            "name": "24:6F:28:3A:7B:A0",
-                            "layer": 2
-                        },
-                        {
-                            "name": "24:6F:28:3A:7B:9E",
-                            "layer": 2,
-                            "children": [
-                                {
-                                    "name": "24:6F:28:3A:7B:9F",
+                                    "name": "28:3A:7E",
                                     "layer": 3
                                 }
                             ]
                         },
                         {
-                            "name": "24:6F:28:3A:7B:A0",
+                            "name": "28:3A:7F",
                             "layer": 2
                         }
                     ]
                 },
                 {
-                    "name": "24:6F:28:3A:7B:A1",
+                    "name": "28:3A:80",
                     "layer": 1
                 },
                 {
-                    "name": "24:6F:28:3A:7B:A2",
+                    "name": "28:3A:81",
                     "layer": 1,
                     "children": [
                         {
-                            "name": "24:6F:28:3A:7B:A3",
+                            "name": "28:3A:82",
                             "layer": 2
                         },
                         {
-                            "name": "24:6F:28:3A:7B:A4",
+                            "name": "28:3A:83",
                             "layer": 2
                         }
                     ]
@@ -141,19 +138,16 @@
             ]
         };
 
-        const width = 960;
-        const height = 1200;
+        const svg = d3.select("svg");
+        const width = +svg.attr("viewBox").split(" ")[2];
+        const height = +svg.attr("viewBox").split(" ")[3];
 
-        const svg = d3.select("body").append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .append("g")
-            .attr("transform", "translate(40,40)"); // Adicionei um deslocamento vertical
+        const g = svg.append("g").attr("transform", "translate(40,40)");
 
-        const tree = d3.tree().size([height - 80, width - 160]); // Ajustei a altura disponível
+        const tree = d3.tree().size([height, width - 160]);
 
         const root = d3.hierarchy(data, d => d.children);
-        root.x0 = (height - 80) / 2; // Ajustei a posição inicial do nó raiz
+        root.x0 = height / 2;
         root.y0 = 0;
 
         let i = 0;
@@ -192,7 +186,10 @@
             }
         }
 
-        root.children.forEach(collapse);
+		if(root.children) {
+			root.children.forEach(allCollapsed ? collapse : expand);
+		}
+
         update(root);
 
         document.getElementById('toggle-button').addEventListener('click', () => {
@@ -214,10 +211,10 @@
             const links = treeData.descendants().slice(1);
 
             nodes.forEach(d => {
-                d.y = d.depth * 120;  // Ajuste aqui a distância entre camadas
+                d.y = d.depth * 180;
             });
 
-            const node = svg.selectAll('g.node')
+            const node = g.selectAll('g.node')
                 .data(nodes, d => d.id || (d.id = ++i));
 
             const nodeEnter = node.enter().append('g')
@@ -235,10 +232,6 @@
                 });
 
             nodeEnter.append('rect')
-                .attr('width', 120)
-                .attr('height', 30)
-                .attr('x', -60)
-                .attr('y', -15)
                 .attr('fill', d => {
                     switch (d.data.layer) {
                         case 0: return '#ffcccc';
@@ -252,8 +245,6 @@
                 });
 
             nodeEnter.append('text')
-                .attr('dy', 3)
-                .attr('x', 0)
                 .style('text-anchor', 'middle')
                 .text(d => d.data.name);
 
@@ -264,10 +255,6 @@
                 .attr('transform', d => `translate(${d.x},${d.y})`);
 
             nodeUpdate.select('rect')
-                .attr('width', 120)
-                .attr('height', 30)
-                .attr('x', -60)
-                .attr('y', -15)
                 .attr('fill', d => {
                     switch (d.data.layer) {
                         case 0: return '#ffcccc';
@@ -285,13 +272,13 @@
                 .attr('transform', d => `translate(${source.x},${source.y})`)
                 .remove();
 
-            const link = svg.selectAll('path.link')
+            const link = g.selectAll('path.link')
                 .data(links, d => d.id);
 
             const linkEnter = link.enter().insert('path', 'g')
                 .attr('class', 'link')
                 .attr('d', d => {
-                    const o = { x: source.x0, y: source.y0 };
+                    const o = {x: source.x0, y: source.y0};
                     return diagonal(o, o);
                 });
 
@@ -306,7 +293,7 @@
             link.exit().transition()
                 .duration(750)
                 .attr('d', d => {
-                    const o = { x: source.x, y: source.y };
+                    const o = {x: source.x, y: source.y};
                     return diagonal(o, o);
                 })
                 .remove();
@@ -325,5 +312,4 @@
         }
     </script>
 </body>
-
 </html>

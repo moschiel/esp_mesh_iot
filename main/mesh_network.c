@@ -40,11 +40,17 @@ static const char *TAG = "MESH_NETWORK";
 static uint8_t tx_buf[TX_SIZE] = { 0 };
 static uint8_t rx_buf[RX_SIZE] = { 0 };
 static bool is_mesh_connected = false;
-static mesh_addr_t mesh_parent_addr;
 static int mesh_layer = -1;
 static esp_netif_t *netif_sta = NULL;
-static uint8_t sta_mac[6];
-static uint8_t root_address[6];
+
+//node_addr é o endereço relacionado ao WiFi no modo estação 'STA_MAC_address'
+//parent_addr do ponto de vista de um node, é o WiFi do pai como ponto de acesso a malha 'AP_MESH_address'
+//onde o endereço mac do modo AP é 1 unidade maior do que o mac no modo STA
+static mesh_addr_t ROOT_AP_MESH_address;
+static mesh_addr_t ROOT_STA_MESH_address;
+static mesh_addr_t PARENT_AP_MESH_address;
+static mesh_addr_t PARENT_STA_MESH_address;
+extern uint8_t STA_MAC_address[6];
 
 /*******************************************************
  *                Function Declarations
@@ -59,32 +65,36 @@ void mesh_p2p_tx_task(void *arg)
     mesh_data_t mesh_data;
     mesh_data.data = tx_buf;
     mesh_data.tos = MESH_TOS_P2P;
-    esp_read_mac(sta_mac, ESP_MAC_WIFI_STA);
-    uint32_t count = 0;
+    uint32_t iteration_count = 0;
     while (1) {
-        if(!esp_mesh_is_root() && is_mesh_connected)
-        {
-            if((count % 10) == 0) { //envia a cada 10 segundos
-                mesh_data.proto = MESH_PROTO_JSON;
-                tx_msg_node_connected((char*)tx_buf, sizeof(tx_buf), sta_mac, mesh_parent_addr.addr, mesh_layer);
-                mesh_data.size = strlen((char*)tx_buf) + 1;
+        if(is_mesh_connected) {
+            err = ESP_OK;
 
-                err = esp_mesh_send(
-                    NULL,       // mesh_addr_t *to, (use NULL to send to root node)
-                    &mesh_data, // mesh_data_t *data           
-                    0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
-                    NULL,       // mesh_opt_t opt[]
-                    0           // int opt_count
-                );
+            if(!esp_mesh_is_root())
+            {
+                if((iteration_count % 10) == 0) { // reporta cada 10 segundos
+                    mesh_data.proto = MESH_PROTO_JSON;
+                    tx_msg_node_connected((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer);
+                    mesh_data.size = strlen((char*)tx_buf) + 1;
 
-                if (err) {
-                    ESP_LOGE(TAG, "'esp_mesh_send' fail, msg_id:%i, heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
-                        MSG_NODE_CONNECTED, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
+                    err = esp_mesh_send(
+                        NULL,       // mesh_addr_t *to, (use NULL to send to root node)
+                        &mesh_data, // mesh_data_t *data           
+                        0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+                        NULL,       // mesh_opt_t opt[]
+                        0           // int opt_count
+                    );
                 }
             }
+
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "'esp_mesh_send' fail, msg_id:%i, heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
+                    MSG_NODE_CONNECTED, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
+            }
         }
+
         vTaskDelay(1 * 1000 / portTICK_PERIOD_MS);
-        count++;
+        iteration_count++;
     }
     vTaskDelete(NULL);
 }
@@ -126,11 +136,11 @@ void mesh_p2p_rx_task(void *arg)
                 {
                 case MSG_NODE_CONNECTED:
                     if(esp_mesh_is_root()) {
-                        uint8_t node_addr[6];
-                        uint8_t parent_addr[6];
+                        uint8_t node_sta_addr[6];
+                        uint8_t parent_sta_addr[6];
                         int layer;
-                        if(rx_msg_node_connected(root, node_addr, parent_addr, &layer)) {
-                            update_tree_with_node(node_addr, parent_addr, layer);
+                        if(rx_msg_node_connected(root, node_sta_addr, parent_sta_addr, &layer)) {
+                            update_tree_with_node(node_sta_addr, parent_sta_addr, layer);
                         } else {
                             parse_fail = true;
                         }
@@ -232,10 +242,14 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         mesh_event_connected_t *connected = (mesh_event_connected_t *)event_data;
         esp_mesh_get_id(&id);
         mesh_layer = connected->self_layer;
-        memcpy(&mesh_parent_addr.addr, connected->connected.bssid, 6);
+        memcpy(PARENT_AP_MESH_address.addr, connected->connected.bssid, 6);
+        memcpy(PARENT_STA_MESH_address.addr, PARENT_AP_MESH_address.addr, 6);
+        //O endereço mac no modo AP é 1 unidade maior do que o mac no modo STA
+        PARENT_STA_MESH_address.addr[5] = PARENT_AP_MESH_address.addr[5] - 1;
+
         ESP_LOGI(TAG,
-                 "<MESH_EVENT_PARENT_CONNECTED>layer:%d-->%d, parent:"MACSTR"%s, ID:"MACSTR", duty:%d",
-                 last_layer, mesh_layer, MAC2STR(mesh_parent_addr.addr),
+                 "<MESH_EVENT_PARENT_CONNECTED>layer:%d-->%d, parent: sta"MACSTR"/ ap"MACSTR" %s, ID:"MACSTR", duty:%d",
+                 last_layer, mesh_layer, MAC2STR(PARENT_STA_MESH_address.addr), MAC2STR(PARENT_AP_MESH_address.addr),
                  esp_mesh_is_root() ? "<ROOT>" :
                  (mesh_layer == 2) ? "<layer2>" : "", MAC2STR(id.addr), connected->duty);
         last_layer = mesh_layer;
@@ -283,9 +297,13 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
     break;
     case MESH_EVENT_ROOT_ADDRESS: {
         mesh_event_root_address_t *root_addr = (mesh_event_root_address_t *)event_data;
-        memcpy(root_address, root_addr->addr, 6);
-        ESP_LOGI(TAG, "<MESH_EVENT_ROOT_ADDRESS>root address:"MACSTR"",
-                 MAC2STR(root_addr->addr));
+        memcpy(ROOT_AP_MESH_address.addr, root_addr->addr, 6);
+        memcpy(ROOT_STA_MESH_address.addr, ROOT_AP_MESH_address.addr, 6);
+        //O endereço mac no modo AP é 1 unidade maior do que o mac no modo STA
+        ROOT_STA_MESH_address.addr[5] = ROOT_AP_MESH_address.addr[5] - 1;
+
+        ESP_LOGI(TAG, "<MESH_EVENT_ROOT_ADDRESS>root address: sta"MACSTR" / ap"MACSTR"",
+                 MAC2STR(ROOT_STA_MESH_address.addr), MAC2STR(ROOT_AP_MESH_address.addr));
     }
     break;
     case MESH_EVENT_VOTE_STARTED: {
@@ -312,8 +330,8 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
     case MESH_EVENT_ROOT_SWITCH_ACK: {
         /* new root */
         mesh_layer = esp_mesh_get_layer();
-        esp_mesh_get_parent_bssid(&mesh_parent_addr);
-        ESP_LOGI(TAG, "<MESH_EVENT_ROOT_SWITCH_ACK>layer:%d, parent:"MACSTR"", mesh_layer, MAC2STR(mesh_parent_addr.addr));
+        esp_mesh_get_parent_bssid(&PARENT_AP_MESH_address);
+        ESP_LOGI(TAG, "<MESH_EVENT_ROOT_SWITCH_ACK>layer:%d, parent:"MACSTR"", mesh_layer, MAC2STR(PARENT_AP_MESH_address.addr));
     }
     break;
     case MESH_EVENT_TODS_STATE: {

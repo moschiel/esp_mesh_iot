@@ -7,105 +7,114 @@
 #include "esp_mesh.h"
 
 #include "utils.h"
+#include "html_builder.h"
+
 
 void send_root_html(
     httpd_req_t *req, 
-    uint8_t sta_addr[6], //mac address deste dispositivo 
+    uint8_t sta_addr[6], //station mac address deste dispositivo 
     char* router_ssid, 
     char* router_password, 
     uint8_t mesh_id[6],
     char* mesh_password,
-    mesh_addr_t* routing_table,
-    int routing_table_size)
+    bool mesh_parent_connected,
+    MeshNode* mesh_tree_table,
+    int mesh_tree_count)
 {
     char aux_buf[500];
 
     httpd_str_resp_send_chunk(req, 
-    "<!DOCTYPE html>"
-       "<html>"
-	       "<head>"
-		       "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-		       "<style>"
-			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; width: 400px; max-width: 90%; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
-			       ".container { text-align: center; background-color: #fff; padding: 20px; width: auto; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-			       "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }"
-			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }"
-			       "input[type='submit']:hover { background-color: #45a049; }"
-		       "</style>"
-                "<script>"
-                    "function formatMeshID(e) {"
-                    "  var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');"
-                    "  e.target.value = r.match(/.{1,2}/g).join('-');"
-                    "}"
-                    "function togglePassword(id) {"
-                    "  var x = document.getElementById(id);"
-                    "  if (x.type === 'password') {"
-                        "x.type = 'text';"
-                    "  } else {"
-                        "x.type = 'password';"
-                    "  }"
-                    "}"
-                "</script>"
-	       "</head>"
-	       "<body>"
-                "<br/>"
-                "<div class='container'>"
-                    "<h2>Device Info</h2>");
+    "<!DOCTYPE html>\n"
+       "<html>\n"
+	       "<head>\n"
+		       "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"
+		       "<style>\n"
+			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column;}\n"
+			       ".container { max-width: 90%; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }\n"
+                   ".container_1 { width: 400px; text-align: center; }\n"
+                   ".container_2 { width: auto; max-width: 90%; text-align: left; }\n"
+                   "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }\n"
+			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }\n"
+			       "input[type='submit']:hover { background-color: #45a049; }\n"
+		       "</style>\n"
+                "<script>\n"
+                    "function formatMeshID(e) {\n"
+                    "  var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');\n"
+                    "  e.target.value = r.match(/.{1,2}/g).join('-');\n"
+                    "}\n"
+                    "function togglePassword(id) {\n"
+                    "  var x = document.getElementById(id);\n"
+                    "  if (x.type === 'password') {\n"
+                        "x.type = 'text';\n"
+                    "  } else {\n"
+                        "x.type = 'password';\n"
+                    "  }\n"
+                    "}\n"
+                "</script>\n"
+	       "</head>\n"
+	       "<body>\n"
+                "<br/>\n"
+                "<div class='container container_1'>\n"
+                    "<h2>Device Info</h2>\n");
     httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                   "<p>MAC address: "MACSTR"</p>", MAC2STR(sta_addr));
+                   "<p>MAC address: "MACSTR"</p>\n", MAC2STR(sta_addr));
     httpd_str_resp_send_chunk(req,         
-		       "</div>"
-               "<br/>"
-		       "<div class='container'>"
-			       "<form action='/set_wifi' method='post'>"
-                        "<h2>Configure WiFi Router</h2>"
-                        "<label for='router_ssid'>Router SSID:</label><br>");
+		       "</div>\n"
+               "<br/>\n"
+		       "<div class='container container_1'>\n"
+			       "<form action='/set_wifi' method='post'>\n"
+                        "<h2>Configure WiFi Router</h2>\n"
+                        "<label for='router_ssid'>Router SSID:</label><br>\n");
     httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<input type='text' id='router_ssid' name='router_ssid' value='%s' required><br>", router_ssid);
+                        "<input type='text' id='router_ssid' name='router_ssid' value='%s' required><br>\n", router_ssid);
     httpd_str_resp_send_chunk(req,
-                        "<label for='router_password'>Router Password:</label><br>");
+                        "<label for='router_password'>Router Password:</label><br>\n");
     httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),                        
-                        "<input type='password' id='router_password' name='router_password' value='%s' required><br/>", router_password);
+                        "<input type='password' id='router_password' name='router_password' value='%s' required><br/>\n", router_password);
     httpd_str_resp_send_chunk(req,
-                        "<input type='checkbox' onclick='togglePassword(\"router_password\")'> Show Password<br/>"
-                        "<br/>"
-                        "<h2>Configure Mesh Network</h2>"
-                        "<label for='mesh_id'>Mesh ID:</label><br>");
+                        "<input type='checkbox' onclick='togglePassword(\"router_password\")'> Show Password<br/>\n"
+                        "<br/>\n"
+                        "<h2>Configure Mesh Network</h2>\n"
+                        "<label for='mesh_id'>Mesh ID:</label><br>\n");
     httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),   //MESH-ID NAO PODE SEPARADOR ':', POIS FORMULARIO CODIFICA DIFERENTE AO FAZER SUBMIT
-                        "<input type='text' id='mesh_id' name='mesh_id' value='%02X-%02X-%02X-%02X-%02X-%02X' required oninput='formatMeshID(event)' maxlength='17'><br>",
+                        "<input type='text' id='mesh_id' name='mesh_id' value='%02X-%02X-%02X-%02X-%02X-%02X' required oninput='formatMeshID(event)' maxlength='17'><br>\n",
                         mesh_id[0],mesh_id[1],mesh_id[2],mesh_id[3],mesh_id[4],mesh_id[5]);
     httpd_str_resp_send_chunk(req,
-                        "<label for='mesh_password'>Mesh Password:</label><br>");
+                        "<label for='mesh_password'>Mesh Password:</label><br>\n");
     httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<input type='password' id='mesh_password' name='mesh_password' value='%s' required><br/>", mesh_password);
+                        "<input type='password' id='mesh_password' name='mesh_password' value='%s' required><br/>\n", mesh_password);
     httpd_str_resp_send_chunk(req,
-                        "<input type='checkbox' onclick='togglePassword(\"mesh_password\")'> Show Password<br/>"
-                        "<br/>"
-                        "<input type='submit' value='Update Config'>"
-			       "</form>"
-		       "</div>");
+                        "<input type='checkbox' onclick='togglePassword(\"mesh_password\")'> Show Password<br/>\n"
+                        "<br/>\n"
+                        "<input type='submit' value='Update Config'>\n"
+			       "</form>\n"
+		       "</div>\n");
 
-    if(routing_table != NULL && routing_table_size > 0) {
+    if(mesh_parent_connected) {
         httpd_str_resp_send_chunk(req, 
-                "<br/>"
-                "<div class='container'>"
-                    "<h2>Nodes in Mesh Network</h2>"
-                    "<ul>");
-
-        for (int i = 0; i < routing_table_size; i++) {
-            httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<li>"MACSTR"</li>", MAC2STR(routing_table[i].addr));
+                "<br/>\n"
+                "<div class='container  container_2'>\n"
+                    "<h2>Nodes in Mesh Network</h2>\n"
+                    "<ol>\n");
+        httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+                        "<li><strong>Root:</strong> "MACSTREND", <strong>Layer:</strong> 1</li>\n", MAC2STREND(sta_addr));
+        if(mesh_tree_table != NULL && mesh_tree_count > 0) {
+            for (int i = 0; i < mesh_tree_count; i++) {
+                httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+                        "<li><strong>Node:</strong> "MACSTREND", <strong>Parent:</strong> "MACSTREND", <strong>Layer:</strong> %i</li>\n",
+                        MAC2STREND(mesh_tree_table[i].node_sta_addr), MAC2STREND(mesh_tree_table[i].parent_sta_addr), mesh_tree_table[i].layer);
+            }
         }
         
         httpd_str_resp_send_chunk(req, 
-                    "</ul>"
-                "</div>"
-                "<br/>");
+                    "</ol>\n"
+                "</div>\n"
+                "<br/>\n");
     }
 
     httpd_str_resp_send_chunk(req, 
-            "</body>"
-        "</html>");
+            "</body>\n"
+        "</html>\n");
 
     //When you are finished sending all your chunks, you must call this function with buf_len as 0.
     httpd_resp_send_chunk(req, NULL, 0);
@@ -113,258 +122,209 @@ void send_root_html(
 
 void send_set_wifi_html(httpd_req_t *req, bool valid_setting) {
     if(valid_setting) {
-        httpd_resp_send(req, "<!DOCTYPE html>"
-           "<html>"
-               "<head>"
-                   "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                   "<style>"
-                        "body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }"
-                        ".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }"
-                   "</style>"
-               "</head>"
-               "<body>"
-                   "<div class='container'>"
-                       "<h2>WiFi settings updated</h2>"
-                       "<p>Restarting...</p>"
-                   "</div>"
-               "</body>"
-           "</html>", HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send(req, "<!DOCTYPE html>\n"
+           "<html>\n"
+               "<head>\n"
+                   "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"
+                   "<style>\n"
+                        "body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }\n"
+                        ".container { text-align: center; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }\n"
+                   "</style>\n"
+               "</head>\n"
+               "<body>\n"
+                   "<div class='container'>\n"
+                       "<h2>WiFi settings updated</h2>\n"
+                       "<p>Restarting...</p>\n"
+                   "</div>\n"
+               "</body>\n"
+           "</html>\n", HTTPD_RESP_USE_STRLEN);
     } else {
         httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
     }
 }
 
-#if BLABLA
-void send_mesh_tree_html(httpd_req_t *req, mesh_addr_t* routing_table, int table_size) {
-    char aux_buf[500];
 
-    // Obter o endereço MAC do nó raiz
-    mesh_addr_t root_addr;
-    esp_mesh_get_mac(&root_addr);
+void send_mesh_tree_html(
+    httpd_req_t *req,
+    char *mesh_json_str) 
+{
 
-    // Iniciar o HTML com o nó raiz
     httpd_str_resp_send_chunk(req,
-        "<!DOCTYPE html>"
-        "<html lang=\"en\">"
-        "<head>"
-            "<meta charset=\"UTF-8\">"
-            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-            "<title>Mesh Network Graph</title>"
-            "<style>"
-                ".node { cursor: pointer; }"
-                ".node rect { stroke: steelblue; stroke-width: 3px; rx: 10; ry: 10; }"
-                ".node text { font: 12px sans-serif; }"
-                ".link { fill: none; stroke: #ccc; stroke-width: 2px; }"
-                "button { margin: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer; }"
-            "</style>"
-        "</head>"
-        "<body>"
-            "<h1>Mesh Network Graph</h1>"
-            "<button id=\"toggle-button\">Collapse All</button>"
-            "<script src=\"https://d3js.org/d3.v6.min.js\"></script>"
-            "<script>"
-                "const data = {");
-    httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                    "\"name\": \"" MACSTR "\","
-                    "\"children\": [", MAC2STR(root_addr.addr));
+        "<!DOCTYPE html>\n"
+        "<html lang=\"en\">\n"
+        "<head>\n"
+            "<meta charset=\"UTF-8\">\n"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+            "<title>Mesh Network Tree</title>\n"
+            "<style>\n"
+                "body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }\n"
+                "h1 { color: #333; text-align: center; }\n"
+                ".container { width: 100%; max-width: 960px; margin: 0 auto; }\n"
+                "svg { width: 100%; height: auto; }\n"
+                ".node { cursor: pointer; }\n"
+                ".node rect { stroke: steelblue; stroke-width: 3px; rx: 10; ry: 10; }\n"
+                ".node text { font: 12px sans-serif; font-weight: bold; }\n"
+                ".link { fill: none; stroke: #666; }\n"
+                "button { margin: 20px auto; padding: 10px 20px; font-size: 16px; cursor: pointer; display: block; }\n"
+                "@media (max-width: 600px) {\n"
+                    ".node rect { stroke-width: 6px; width: 220px; height: 60px; x: -110px; y: -40px; }\n"
+                    ".node text { font: 40px sans-serif; font-weight: bold; }\n"
+                    ".link { stroke-width: 4px; }\n"
+                "}\n"
+                "@media (min-width: 601px) {\n"
+                    ".node rect { stroke-width: 3px; width: 120px; height: 30px; x: -60px; y: -20px; }\n"
+                    ".node text { font: 18px sans-serif; font-weight: bold; }\n"
+                    ".link { stroke-width: 2px; }\n"
+                "}\n"
+            "</style>\n"
+        "</head>\n");
+    httpd_str_resp_send_chunk(req,
+        "<body>\n"
+            "<div class=\"container\">\n"
+                "<h1>Mesh Network Tree</h1>\n"
+                "<button id=\"toggle-button\">Collapse All</button>\n"
+                "<div style=\"width: 100%; max-width: 960px;\">\n"
+                    "<svg viewBox=\"0 0 960 800\" preserveAspectRatio=\"xMidYMid meet\"></svg>\n"
+                "</div>\n"
+            "</div>\n"
+            "<script src=\"https://d3js.org/d3.v6.min.js\"></script>\n"
+            "<script>\n"
+                "const data = ");
 
-    // Função auxiliar para adicionar nós ao HTML
-    void add_node_to_html(const mesh_addr_t *node_addr, int level) {
-        httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf), 
-                            "{"
-                                "\"name\": \"" MACSTR "\","
-                                "\"layer\": %d,"
-                                "\"children\": [", MAC2STR(node_addr->addr), level);
-
-        // Obter nós filhos (nós que têm este nó como pai)
-        for (int i = 0; i < table_size; i++) {
-            mesh_addr_t parent_addr;
-            esp_mesh_get_parent_bssid(&parent_addr);
-            if (memcmp(routing_table[i].addr, node_addr->addr, 6) == 0) {
-                add_node_to_html(&routing_table[i], level + 1);
-                httpd_str_resp_send_chunk(req, 
-                                "]");
-            }
-        }
-
-        httpd_str_resp_send_chunk(req, 
-                    "]");
-    }
-
-    // Adicionar nós filhos do nó raiz
-    for (int i = 0; i < table_size; i++) {
-        mesh_addr_t parent_addr;
-        esp_mesh_get_parent_bssid(&parent_addr);
-        if (memcmp(parent_addr.addr, root_addr.addr, 6) == 0) {
-            add_node_to_html(&routing_table[i], 1);
-            httpd_str_resp_send_chunk(req, "]");
-        }
-    }
+    httpd_str_resp_send_chunk(req, mesh_json_str);
 
     // Finalizar o HTML
     httpd_str_resp_send_chunk(req,
-                "]"
-            "};"
-            "const width = 960;"
-            "const height = 800;"
-            "const svg = d3.select(\"body\").append(\"svg\")"
-                ".attr(\"width\", width)"
-                ".attr(\"height\", height)"
-                ".append(\"g\")"
-                ".attr(\"transform\", \"translate(40,40)\");"
-            "const tree = d3.tree().size([height - 80, width - 160]);"
-            "const root = d3.hierarchy(data, d => d.children);"
-            "root.x0 = (height - 80) / 2;"
-            "root.y0 = 0;"
-            "let i = 0;"
-            "let allCollapsed = false;"
-            "function collapse(d) {"
-                "if (d.children) {"
-                    "d._children = d.children;"
-                    "d._children.forEach(collapse);"
-                    "d.children = null;"
-                "}"
-            "}"
-            "function expand(d) {"
-                "if (d._children) {"
-                    "d.children = d._children;"
-                    "d.children.forEach(expand);"
-                    "d._children = null;"
-                "}"
-            "}"
-            "function collapseAll(d) {"
-                "collapse(d);"
-                "if (d.children) {"
-                    "d.children.forEach(collapseAll);"
-                "}"
-                "if (d._children) {"
-                    "d._children.forEach(collapseAll);"
-                "}"
-            "}"
-            "function expandAll(d) {"
-                "expand(d);"
-                "if (d.children) {"
-                    "d.children.forEach(expandAll);"
-                "}"
-            "}"
-            "root.children.forEach(collapse);"
-            "update(root);"
-            "document.getElementById('toggle-button').addEventListener('click', () => {"
-                "if (allCollapsed) {"
-                    "expandAll(root);"
-                    "update(root);"
-                    "document.getElementById('toggle-button').textContent = 'Collapse All';"
-                "} else {"
-                    "collapseAll(root);"
-                    "update(root);"
-                    "document.getElementById('toggle-button').textContent = 'Expand All';"
-                "}"
-                "allCollapsed = !allCollapsed;"
-            "});"
-            "function update(source) {"
-                "const treeData = tree(root);"
-                "const nodes = treeData.descendants();"
-                "const links = treeData.descendants().slice(1);"
-                "nodes.forEach(d => {"
-                    "d.y = d.depth * 180;"
-                "});"
-                "const node = svg.selectAll('g.node')"
-                    ".data(nodes, d => d.id || (d.id = ++i));"
-                "const nodeEnter = node.enter().append('g')"
-                    ".attr('class', 'node')"
-                    ".attr('transform', d => `translate(${source.x0},${source.y0})`)"
-                    ".on('click', (event, d) => {"
-                        "if (d.children) {"
-                            "d._children = d.children;"
-                            "d.children = null;"
-                        "} else {"
-                            "d.children = d._children;"
-                            "d._children = null;"
-                        "}"
-                        "update(d);"
-                    "});"
-                "nodeEnter.append('rect')"
-                    ".attr('width', 120)"
-                    ".attr('height', 30)"
-                    ".attr('x', -60)"
-                    ".attr('y', -15)"
-                    ".attr('fill', d => {"
-                        "switch (d.data.layer) {"
-                            "case 0: return '#ffcccc';"
-                            "case 1: return '#ffebcc';"
-                            "case 2: return '#ffffcc';"
-                            "case 3: return '#ccffcc';"
-                            "case 4: return '#cceeff';"
-                            "case 5: return '#ccccff';"
-                            "default: return '#fff';"
-                        "}"
-                    "});"
-                "nodeEnter.append('text')"
-                    ".attr('dy', 3)"
-                    ".attr('x', 0)"
-                    ".style('text-anchor', 'middle')"
-                    ".text(d => d.data.name);"
-                "const nodeUpdate = nodeEnter.merge(node);"
-                "nodeUpdate.transition()"
-                    ".duration(750)"
-                    ".attr('transform', d => `translate(${d.x},${d.y})`);"
-                "nodeUpdate.select('rect')"
-                    ".attr('width', 120)"
-                    ".attr('height', 30)"
-                    ".attr('x', -60)"
-                    ".attr('y', -15)"
-                    ".attr('fill', d => {"
-                        "switch (d.data.layer) {"
-                            "case 0: return '#ffcccc';"
-                            "case 1: return '#ffebcc';"
-                            "case 2: return '#ffffcc';"
-                            "case 3: return '#ccffcc';"
-                            "case 4: return '#cceeff';"
-                            "case 5: return '#ccccff';"
-                            "default: return '#fff';"
-                        "}"
-                    "});"
-                "const nodeExit = node.exit().transition()"
-                    ".duration(750)"
-                    ".attr('transform', d => `translate(${source.x},${source.y})`)"
-                    ".remove();"
-                "const link = svg.selectAll('path.link')"
-                    ".data(links, d => d.id);"
-                "const linkEnter = link.enter().insert('path', 'g')"
-                    ".attr('class', 'link')"
-                    ".attr('d', d => {"
-                        "const o = {x: source.x0, y: source.y0};"
-                        "return diagonal(o, o);"
-                    "});"
-                "linkEnter.transition()"
-                    ".duration(750)"
-                    ".attr('d', d => diagonal(d, d.parent));"
-                "link.transition()"
-                    ".duration(750)"
-                    ".attr('d', d => diagonal(d, d.parent));"
-                "link.exit().transition()"
-                    ".duration(750)"
-                    ".attr('d', d => {"
-                        "const o = {x: source.x, y: source.y};"
-                        "return diagonal(o, o);"
-                    "})"
-                    ".remove();"
-                "nodes.forEach(d => {"
-                    "d.x0 = d.x;"
-                    "d.y0 = d.y;"
-                "});"
-                "function diagonal(s, d) {"
-                    "return `M${s.x},${s.y}"
-                        "C${s.x},${(s.y + d.y) / 2}"
-                        "${d.x},${(s.y + d.y) / 2}"
-                        "${d.x},${d.y}`;"
-                "}"
-            "}"
-            "</script>"
-        "</body>"
+                ";\n"
+                "const svg = d3.select(\"svg\");\n"
+                "const width = +svg.attr(\"viewBox\").split(\" \")[2];\n"
+                "const height = +svg.attr(\"viewBox\").split(\" \")[3];\n"
+                "const g = svg.append(\"g\").attr(\"transform\", \"translate(40,40)\");\n"
+                "const tree = d3.tree().size([height, width - 160]);\n"
+                "const root = d3.hierarchy(data, d => d.children);\n"
+                "root.x0 = height / 2;\n"
+                "root.y0 = 0;\n"
+                "let i = 0;\n"
+                "let allCollapsed = false;\n"
+                "function collapse(d) {\n"
+                    "if (d.children) {\n"
+                        "d._children = d.children;\n"
+                        "d._children.forEach(collapse);\n"
+                        "d.children = null;\n"
+                    "}\n"
+                "}\n"
+                "function expand(d) {\n"
+                    "if (d._children) {\n"
+                        "d.children = d._children;\n"
+                        "d.children.forEach(expand);\n"
+                        "d._children = null;\n"
+                    "}\n"
+                "}\n"
+                "function collapseAll(d) {\n"
+                    "collapse(d);\n"
+                    "if (d.children) {\n"
+                        "d.children.forEach(collapseAll);\n"
+                    "}\n"
+                    "if (d._children) {\n"
+                        "d._children.forEach(collapseAll);\n"
+                    "}\n"
+                "}\n"
+                "function expandAll(d) {\n"
+                    "expand(d);\n"
+                    "if (d.children) {\n"
+                        "d.children.forEach(expandAll);\n"
+                    "}\n"
+                "}\n");
+    httpd_str_resp_send_chunk(req,
+                "if(root.children){\n"
+                    "root.children.forEach(allCollapsed ? collapse : expand);\n"
+                "}\n"
+                "update(root);\n"
+                "document.getElementById('toggle-button').addEventListener('click', () => {\n"
+                    "if (allCollapsed) {\n"
+                        "expandAll(root);\n"
+                        "update(root);\n"
+                        "document.getElementById('toggle-button').textContent = 'Collapse All';\n"
+                    "} else {\n"
+                        "collapseAll(root);\n"
+                        "update(root);\n"
+                        "document.getElementById('toggle-button').textContent = 'Expand All';\n"
+                    "}\n"
+                    "allCollapsed = !allCollapsed;\n"
+                "});\n"
+                "function update(source) {\n"
+                    "const treeData = tree(root);\n"
+                    "const nodes = treeData.descendants();\n"
+                    "const links = treeData.descendants().slice(1);\n"
+                    "nodes.forEach(d => {\n"
+                        "d.y = d.depth * 180;\n"
+                    "});\n"
+                    "const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++i));\n");
+
+    httpd_str_resp_send_chunk(req,
+                    "const nodeEnter = node.enter().append('g').attr('class', 'node').attr('transform', d => `translate(${source.x0},${source.y0})`).on('click', (event, d) => {\n"
+                        "if (d.children) {\n"
+                            "d._children = d.children;\n"
+                            "d.children = null;\n"
+                        "} else {\n"
+                            "d.children = d._children;\n"
+                            "d._children = null;\n"
+                        "}\n"
+                        "update(d);\n"
+                    "});\n"
+                    "nodeEnter.append('rect').attr('fill', d => {\n"
+                        "switch (d.data.layer) {\n"
+                            "case 0: return '#ffcccc';\n"
+                            "case 1: return '#ffebcc';\n"
+                            "case 2: return '#ffffcc';\n"
+                            "case 3: return '#ccffcc';\n"
+                            "case 4: return '#cceeff';\n"
+                            "case 5: return '#ccccff';\n"
+                            "default: return '#fff';\n"
+                        "}\n"
+                    "});\n"
+                    "nodeEnter.append('text').style('text-anchor', 'middle').text(d => d.data.name);\n"
+                    "const nodeUpdate = nodeEnter.merge(node);\n"
+                    "nodeUpdate.transition().duration(750).attr('transform', d => `translate(${d.x},${d.y})`);\n"
+                    "nodeUpdate.select('rect').attr('fill', d => {\n"
+                        "switch (d.data.layer) {\n"
+                            "case 0: return '#ffcccc';\n"
+                            "case 1: return '#ffebcc';\n"
+                            "case 2: return '#ffffcc';\n"
+                            "case 3: return '#ccffcc';\n"
+                            "case 4: return '#cceeff';\n"
+                            "case 5: return '#ccccff';\n"
+                            "default: return '#fff';\n"
+                        "}\n"
+                    "});\n");
+    httpd_str_resp_send_chunk(req,
+                    "const nodeExit = node.exit().transition().duration(750).attr('transform', d => `translate(${source.x},${source.y})`).remove();\n"
+                    "const link = g.selectAll('path.link').data(links, d => d.id);\n"
+                    "const linkEnter = link.enter().insert('path', 'g').attr('class', 'link').attr('d', d => {\n"
+                        "const o = {x: source.x0, y: source.y0};\n"
+                        "return diagonal(o, o);\n"
+                    "});\n"
+                    "linkEnter.transition().duration(750).attr('d', d => diagonal(d, d.parent));\n"
+                    "link.transition().duration(750).attr('d', d => diagonal(d, d.parent));\n"
+                    "link.exit().transition().duration(750).attr('d', d => {\n"
+                        "const o = {x: source.x, y: source.y};\n"
+                        "return diagonal(o, o);\n"
+                    "}).remove();\n"
+                    "nodes.forEach(d => {\n"
+                        "d.x0 = d.x;\n"
+                        "d.y0 = d.y;\n"
+                    "});\n"
+                    "function diagonal(s, d) {\n"
+                        "return `M${s.x},${s.y}\n"
+                                "C${s.x},${(s.y + d.y) / 2}\n"
+                                 "${d.x},${(s.y + d.y) / 2}\n"
+                                 "${d.x},${d.y}`;\n"
+                    "}\n"
+                "}\n"
+            "</script>\n"
+        "</body>\n"
         "</html>");
 
     // Envia o último chunk indicando o fim da resposta
     httpd_resp_send_chunk(req, NULL, 0);
 }
-#endif

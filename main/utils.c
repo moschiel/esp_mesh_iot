@@ -14,16 +14,16 @@
 
 #include "utils.h"
 
+extern uint8_t STA_MAC_address[6];
+
 //static const char *TAG = "UTILS";
 
 void print_chip_info(void) {
     /* Print chip information */
     esp_chip_info_t chip_info;
     uint32_t flash_size;
-    uint8_t mac[6];
 
     esp_chip_info(&chip_info);
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);
 
     printf("This is %s chip with %d CPU core(s), %s%s%s%s, ",
            CONFIG_IDF_TARGET,
@@ -47,7 +47,7 @@ void print_chip_info(void) {
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
-    printf("MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    printf("MAC address: "MACSTR"\n", MAC2STR(STA_MAC_address));
 }
 
 // Função para converter uma string no formato MAC para um array de bytes
@@ -57,13 +57,18 @@ void mac_str_to_bytes(const char *mac_str, uint8_t *mac_bytes) {
     }
 }
 
-void mac_to_string(uint8_t mac[6], char *mac_str) {
+void mac_bytes_to_string(uint8_t mac[6], char *mac_str) {
     sprintf(mac_str, MACSTR, MAC2STR(mac));
 }
 
 // Função para comparar endereços MAC
 bool compare_mac(uint8_t mac1[6], uint8_t mac2[6]) {
     return memcmp(mac1, mac2, 6) == 0;
+}
+
+// Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
+void format_mac(char *str, const uint8_t *mac) {
+    sprintf(str, ""MACSTREND"", MAC2STREND(mac));
 }
 
 //envia resposta string a uma requisicao http

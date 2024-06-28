@@ -7,6 +7,8 @@
 #include "esp_wifi.h"
 #include "esp_mesh.h"
 
+#include "mesh_tree.h"
+
 
 void send_root_html(
     httpd_req_t *req, 
@@ -15,10 +17,16 @@ void send_root_html(
     char* router_password, 
     uint8_t mesh_id[6],
     char* mesh_password,
-    mesh_addr_t* routing_table,
-    int routing_table_size
+    bool mesh_parent_connected,
+    MeshNode* mesh_tree,
+    int mesh_tree_count
 );
 
 void send_set_wifi_html(httpd_req_t *req, bool valid_setting);
+
+void send_mesh_tree_html(
+    httpd_req_t *req,
+    char *mesh_json_str
+); 
 
 #endif

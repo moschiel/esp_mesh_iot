@@ -8,21 +8,30 @@
 			    font-family: Arial, sans-serif;
 			    margin: auto;
 			    padding: 0;
-                width: 400px;
-			    max-width: 90%;
 			    justify-content: center;
 			    align-items: center;
-			    height: 100vh;
 			    background-color: #f0f0f0;
+				display: flex;
+				flex-direction: column;
 			}
 
 			.container {
-			    text-align: center;
+			    max-width: 90%;
 			    background-color: #fff;
 			    padding: 20px;
-			    width: auto;
 			    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
 			    border-radius: 8px;
+			}
+
+			.container_1 {
+				width: 400px;
+			    text-align: center;
+			}
+
+			.container_2 {
+				width: auto;
+			    max-width: 90%;
+			    text-align: left;
 			}
 
 			input[type='text'],
@@ -57,12 +66,12 @@
 
 	<body>
 		<br />
-		<div class="container">
+		<div class="container container_1">
 			<h2>Device Info</h2>
 			<p>Root MAC address: 08:d1:f9:dd:80:9c</p>
 		</div>
 		<br />
-		<div class="container">
+		<div class="container container_1">
 			<form action="/set_wifi" method="post">
                 <h2>Configure WiFi Router</h2>
 				<label for="router_ssid">Router SSID:</label><br />
@@ -83,13 +92,15 @@
 			</form>
 		</div>
 		<br />
-		<div class="container">
+		<div class="container container_2">
 			<h3>Nodes in Mesh Network</h3>
-			<ul>
-				<li>08:d1:f9:dd:80:9c</li>
-                <li>08:d1:f9:dd:80:9c</li>
-                <li>08:d1:f9:dd:80:9c</li>
-			</ul>
+			<ol>
+				<li><strong>Root:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
+				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
+				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
+				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
+				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
+			</ol>
 		</div>
 	</body>
 </html>
