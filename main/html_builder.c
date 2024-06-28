@@ -29,14 +29,15 @@ void send_root_html(
 	       "<head>\n"
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"
 		       "<style>\n"
-			       "body { font-family: Arial, sans-serif; margin: auto; padding: 0; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column;}\n"
-			       ".container { max-width: 90%; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; }\n"
-                   ".container_1 { width: 400px; text-align: center; }\n"
-                   ".container_2 { width: auto; max-width: 90%; text-align: left; }\n"
+			       "body { font-family: Arial, sans-serif; margin: auto; padding: 20px; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column;}\n"
+			       ".container { width: 100%; max-width: 90%; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; text-align: left; }\n"
                    "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }\n"
-			       "input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }\n"
-			       "input[type='submit']:hover { background-color: #45a049; }\n"
-		       "</style>\n"
+			       "button,input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }\n"
+			       "button,input[type='submit']:hover { background-color: #45a049; }\n"
+                   "table { border-collapse: collapse; width: 100%; }\n"
+                   "table, th, td { border:1px solid black; }\n"
+		       "</style>\n");
+    httpd_str_resp_send_chunk(req,
                 "<script>\n"
                     "function formatMeshID(e) {\n"
                     "  var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');\n"
@@ -54,14 +55,14 @@ void send_root_html(
 	       "</head>\n"
 	       "<body>\n"
                 "<br/>\n"
-                "<div class='container container_1'>\n"
+                "<div class='container'>\n"
                     "<h2>Device Info</h2>\n");
     httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
                    "<p>MAC address: "MACSTR"</p>\n", MAC2STR(sta_addr));
     httpd_str_resp_send_chunk(req,         
 		       "</div>\n"
                "<br/>\n"
-		       "<div class='container container_1'>\n"
+		       "<div class='container'>\n"
 			       "<form action='/set_wifi' method='post'>\n"
                         "<h2>Configure WiFi Router</h2>\n"
                         "<label for='router_ssid'>Router SSID:</label><br>\n");
@@ -93,22 +94,29 @@ void send_root_html(
     if(mesh_parent_connected) {
         httpd_str_resp_send_chunk(req, 
                 "<br/>\n"
-                "<div class='container  container_2'>\n"
+                "<div class='container'>\n"
                     "<h2>Nodes in Mesh Network</h2>\n"
-                    "<ol>\n");
+                    "<button onclick=\"openTree()\">Open Tree View</button><br /><br />\n"
+                    "<table>\n"
+                        "<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>\n");
         httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<li><strong>Root:</strong> "MACSTREND", <strong>Layer:</strong> 1</li>\n", MAC2STREND(sta_addr));
+                        "<tr><td>"MACSTREND"</td><td>WiFi Router</td> <td>1</td></tr>\n", MAC2STREND(sta_addr));
         if(mesh_tree_table != NULL && mesh_tree_count > 0) {
             for (int i = 0; i < mesh_tree_count; i++) {
                 httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<li><strong>Node:</strong> "MACSTREND", <strong>Parent:</strong> "MACSTREND", <strong>Layer:</strong> %i</li>\n",
+                        "<tr><td>"MACSTREND"</td><td>"MACSTREND"</td> <td>%i</td></tr>\n",
                         MAC2STREND(mesh_tree_table[i].node_sta_addr), MAC2STREND(mesh_tree_table[i].parent_sta_addr), mesh_tree_table[i].layer);
             }
         }
         
         httpd_str_resp_send_chunk(req, 
-                    "</ol>\n"
+                    "</table>\n"
                 "</div>\n"
+                "<script>\n"
+                    "function openTree() {\n"
+                        "window.open('mesh_tree', '_blank');\n"
+                    "}\n"
+                "</script>\n"
                 "<br/>\n");
     }
 
@@ -157,11 +165,12 @@ void send_mesh_tree_html(
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
             "<title>Mesh Network Tree</title>\n"
             "<style>\n"
-                "body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }\n"
+                "html { height: 100%; }\n"
+                "body { font-family: Arial, sans-serif; margin: auto; padding: 20px; background-color: #f4f4f4; height: 100%; }\n"
                 "h1 { color: #333; text-align: center; }\n"
-                ".container { width: 100%; max-width: 960px; margin: 0 auto; }\n"
-                ".svg-container { width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; position: relative; }\n"
-                "svg { width: 100%; height: auto; }\n"
+                ".container { width: 100%; max-width: 1600px; margin: 0 auto; height: 100%; display: flex; flex-direction: column; }\n"
+                ".svg-container { width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; position: relative; }\n"
+                "svg { width: 100%; height: 100%; }\n"
                 ".node { cursor: pointer; }\n"
                 ".node rect { stroke: steelblue; stroke-width: 3px; rx: 10; ry: 10; }\n"
                 ".node text { font: 12px sans-serif; font-weight: bold; }\n"

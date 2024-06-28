@@ -7,7 +7,7 @@
 			body {
 			    font-family: Arial, sans-serif;
 			    margin: auto;
-			    padding: 0;
+			    padding: 20px;
 			    justify-content: center;
 			    align-items: center;
 			    background-color: #f0f0f0;
@@ -16,22 +16,13 @@
 			}
 
 			.container {
-			    max-width: 90%;
+				width: 100%;
+			    max-width: 400px;
 			    background-color: #fff;
 			    padding: 20px;
 			    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
 			    border-radius: 8px;
-			}
-
-			.container_1 {
-				width: 400px;
-			    text-align: center;
-			}
-
-			.container_2 {
-				width: auto;
-			    max-width: 90%;
-			    text-align: left;
+				text-align: left;
 			}
 
 			input[type='text'],
@@ -44,7 +35,7 @@
 			    font-size: 16px;
 			}
 
-			input[type='submit'] {
+			button, input[type='submit'] {
 			    background-color: #4CAF50;
 			    color: white;
 			    padding: 10px 20px;
@@ -54,9 +45,12 @@
 			    font-size: 16px;
 			}
 
-			input[type='submit']:hover {
+			button, input[type='submit']:hover {
 			    background-color: #45a049;
 			}
+
+			table { border-collapse: collapse; width: 100%; }
+			table, th, td { border:1px solid black; }
 		</style>
 		<script>
 			function formatMeshID(e) { var r = e.target.value.replace(/[^a-fA-F0-9]/g, ''); e.target.value = r.match(/.{1,2}/g).join('-'); } 
@@ -66,12 +60,12 @@
 
 	<body>
 		<br />
-		<div class="container container_1">
+		<div class="container">
 			<h2>Device Info</h2>
 			<p>Root MAC address: 08:d1:f9:dd:80:9c</p>
 		</div>
 		<br />
-		<div class="container container_1">
+		<div class="container">
 			<form action="/set_wifi" method="post">
                 <h2>Configure WiFi Router</h2>
 				<label for="router_ssid">Router SSID:</label><br />
@@ -92,15 +86,23 @@
 			</form>
 		</div>
 		<br />
-		<div class="container container_2">
+		<div class="container">
 			<h3>Nodes in Mesh Network</h3>
-			<ol>
-				<li><strong>Root:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
-				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
-				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
-				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
-				<li><strong>Node:</strong> 08:d1:f9:dd:80:9c, <strong>Parent:</strong> 08:d1:f9:dd:80:9c, <strong>Layer:</strong> 1</li>
-			</ol>
+			<button onclick="openTree()">Open Tree View</button>
+			<br /><br />
+			<table>
+				<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>
+				<tr><td>dd:80:9c</td><td>dd:80:9c</td> <td>1</td></tr>
+				<tr><td>dd:80:9c</td><td>dd:80:9c</td> <td>1</td></tr>
+				<tr><td>dd:80:9c</td><td>dd:80:9c</td> <td>1</td></tr>
+				<tr><td>dd:80:9c</td><td>dd:80:9c</td> <td>1</td></tr>
+				<tr><td>dd:80:9c</td><td>dd:80:9c</td> <td>1</td></tr>
+			  </table>
 		</div>
+		<script>
+			function openTree() {
+				window.open('mesh_tree', '_blank');
+			}
+		</script>
 	</body>
 </html>
