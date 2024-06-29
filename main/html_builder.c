@@ -9,6 +9,25 @@
 #include "utils.h"
 #include "html_builder.h"
 
+//#define USE_TREE_EXAMPLE
+#ifdef USE_TREE_EXAMPLE
+char* html_table_example = 
+"<tr><td>DE:2E:94</td><td>WiFi Router</td><td>1</td></tr>"
+"<tr><td>58:67:48</td><td>DE:2E:94</td> <td>2</td></tr>"
+"<tr><td>DD:80:9C</td><td>DE:2E:94</td> <td>2</td></tr>"
+"<tr><td>DC:58:7A</td><td>58:67:48</td> <td>3</td></tr>"
+"<tr><td>EC:52:78</td><td>58:67:48</td> <td>3</td></tr>"
+"<tr><td>AC:53:1A</td><td>58:67:48</td> <td>3</td></tr>"
+"<tr><td>3E:A7:E8</td><td>DD:80:9C</td> <td>3</td></tr>"
+"<tr><td>67:58:39</td><td>DD:80:9C</td> <td>3</td></tr>"
+"<tr><td>12:CD:E8</td><td>EC:52:78</td> <td>4</td></tr>"
+"<tr><td>B2:84:8D</td><td>67:58:39</td> <td>4</td></tr>"
+"<tr><td>E4:83:2D</td><td>EC:52:78</td> <td>4</td></tr>";
+
+char* html_json_example = "{\"name\":\"WiFi Router\",\"layer\":0,\"children\":[{\"layer\":1,\"name\":\"DE:2E:94\",\"children\":[{\"name\":\"58:67:48\",\"layer\":2,\"children\":[{\"name\":\"DC:58:7A\",\"layer\":3},{\"name\":\"EC:52:78\",\"layer\":3,\"children\":[{\"name\":\"12:CD:E8\",\"layer\":4},{\"name\":\"E4:83:2D\",\"layer\":4}]},{\"name\":\"AC:53:1A\",\"layer\":3}]},{\"name\":\"DD:80:9C\",\"layer\":2,\"children\":[{\"name\":\"3E:A7:E8\",\"layer\":3},{\"name\":\"67:58:39\",\"layer\":3,\"children\":[{\"name\":\"B2:84:8D\",\"layer\":4}]}]}]}]}";
+
+#endif
+
 //When you are finished sending all your chunks, you must call this macro
 #define HTTP_RESP_CLOSE_CHUNKS(req) httpd_resp_send_chunk(req, NULL, 0)
 
@@ -32,7 +51,7 @@ void send_root_html(
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"
 		       "<style>\n"
                     "body { font-family: Arial, sans-serif; margin: auto; padding: 20px; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column;}\n"
-                    ".container { width: 100%; max-width: 90%; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; text-align: left; }\n"
+                    ".container { width: 100%; max-width: 400px; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; text-align: left; }\n"
                     "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }\n"
                     "button,input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }\n"
                     "button,input[type='submit']:hover { background-color: #45a049; }\n"
@@ -100,6 +119,9 @@ void send_root_html(
                     "<button onclick=\"openTree()\">Open Tree View</button><br /><br />\n"
                     "<table>\n"
                         "<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>\n");
+        #ifdef USE_TREE_EXAMPLE
+        httpd_resp_send_str_chunk(req, html_table_example);
+        #else
         httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
                         "<tr><td>"MACSTREND"</td><td>WiFi Router</td> <td>1</td></tr>\n", MAC2STREND(sta_addr));
         if(mesh_tree_table != NULL && mesh_tree_count > 0) {
@@ -109,6 +131,7 @@ void send_root_html(
                         MAC2STREND(mesh_tree_table[i].node_sta_addr), MAC2STREND(mesh_tree_table[i].parent_sta_addr), mesh_tree_table[i].layer);
             }
         }
+        #endif
         
         httpd_resp_send_str_chunk(req, 
                     "</table>\n"
@@ -204,7 +227,11 @@ void send_mesh_tree_html(
             "<script src=\"https://d3js.org/d3.v6.min.js\"></script>\n"
             "<script>\n"
                 "const data = ");
+    #ifdef USE_TREE_EXAMPLE
+    httpd_resp_send_str_chunk(req, html_json_example);
+    #else
     httpd_resp_send_str_chunk(req, mesh_json_str);
+    #endif
     httpd_resp_send_str_chunk(req,
                 ";\n"
                 "const svg = d3.select(\"svg\");\n"
