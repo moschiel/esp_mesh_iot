@@ -9,6 +9,8 @@
 #include "utils.h"
 #include "html_builder.h"
 
+//When you are finished sending all your chunks, you must call this macro
+#define HTTP_RESP_CLOSE_CHUNKS(req) httpd_resp_send_chunk(req, NULL, 0)
 
 void send_root_html(
     httpd_req_t *req, 
@@ -23,33 +25,32 @@ void send_root_html(
 {
     char aux_buf[500];
 
-    httpd_str_resp_send_chunk(req, 
+    httpd_resp_send_str_chunk(req, 
     "<!DOCTYPE html>\n"
        "<html>\n"
 	       "<head>\n"
 		       "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"
 		       "<style>\n"
-			       "body { font-family: Arial, sans-serif; margin: auto; padding: 20px; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column;}\n"
-			       ".container { width: 100%; max-width: 90%; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; text-align: left; }\n"
-                   "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }\n"
-			       "button,input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }\n"
-			       "button,input[type='submit']:hover { background-color: #45a049; }\n"
-                   "table { border-collapse: collapse; width: 100%; }\n"
-                   "table, th, td { border:1px solid black; }\n"
-		       "</style>\n");
-    httpd_str_resp_send_chunk(req,
+                    "body { font-family: Arial, sans-serif; margin: auto; padding: 20px; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column;}\n"
+                    ".container { width: 100%; max-width: 90%; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; text-align: left; }\n"
+                    "input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }\n"
+                    "button,input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }\n"
+                    "button,input[type='submit']:hover { background-color: #45a049; }\n"
+                    "table { border-collapse: collapse; width: 100%; }\n"
+                    "table, th, td { border:1px solid black; }\n"
+                "</style>\n"
                 "<script>\n"
                     "function formatMeshID(e) {\n"
-                    "  var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');\n"
-                    "  e.target.value = r.match(/.{1,2}/g).join('-');\n"
+                        "var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');\n"
+                        "e.target.value = r.match(/.{1,2}/g).join('-');\n"
                     "}\n"
                     "function togglePassword(id) {\n"
-                    "  var x = document.getElementById(id);\n"
-                    "  if (x.type === 'password') {\n"
-                        "x.type = 'text';\n"
-                    "  } else {\n"
-                        "x.type = 'password';\n"
-                    "  }\n"
+                        "var x = document.getElementById(id);\n"
+                        "if (x.type === 'password') {\n"
+                            "x.type = 'text';\n"
+                        "} else {\n"
+                            "x.type = 'password';\n"
+                        "}\n"
                     "}\n"
                 "</script>\n"
 	       "</head>\n"
@@ -57,34 +58,34 @@ void send_root_html(
                 "<br/>\n"
                 "<div class='container'>\n"
                     "<h2>Device Info</h2>\n");
-    httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+    httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
                    "<p>MAC address: "MACSTR"</p>\n", MAC2STR(sta_addr));
-    httpd_str_resp_send_chunk(req,         
+    httpd_resp_send_str_chunk(req,         
 		       "</div>\n"
                "<br/>\n"
 		       "<div class='container'>\n"
 			       "<form action='/set_wifi' method='post'>\n"
                         "<h2>Configure WiFi Router</h2>\n"
                         "<label for='router_ssid'>Router SSID:</label><br>\n");
-    httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+    httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
                         "<input type='text' id='router_ssid' name='router_ssid' value='%s' required><br>\n", router_ssid);
-    httpd_str_resp_send_chunk(req,
+    httpd_resp_send_str_chunk(req,
                         "<label for='router_password'>Router Password:</label><br>\n");
-    httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),                        
+    httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),                        
                         "<input type='password' id='router_password' name='router_password' value='%s' required><br/>\n", router_password);
-    httpd_str_resp_send_chunk(req,
+    httpd_resp_send_str_chunk(req,
                         "<input type='checkbox' onclick='togglePassword(\"router_password\")'> Show Password<br/>\n"
                         "<br/>\n"
                         "<h2>Configure Mesh Network</h2>\n"
                         "<label for='mesh_id'>Mesh ID:</label><br>\n");
-    httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),   //MESH-ID NAO PODE SEPARADOR ':', POIS FORMULARIO CODIFICA DIFERENTE AO FAZER SUBMIT
+    httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),   //MESH-ID NAO PODE SEPARADOR ':', POIS FORMULARIO CODIFICA DIFERENTE AO FAZER SUBMIT
                         "<input type='text' id='mesh_id' name='mesh_id' value='%02X-%02X-%02X-%02X-%02X-%02X' required oninput='formatMeshID(event)' maxlength='17'><br>\n",
                         mesh_id[0],mesh_id[1],mesh_id[2],mesh_id[3],mesh_id[4],mesh_id[5]);
-    httpd_str_resp_send_chunk(req,
+    httpd_resp_send_str_chunk(req,
                         "<label for='mesh_password'>Mesh Password:</label><br>\n");
-    httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+    httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
                         "<input type='password' id='mesh_password' name='mesh_password' value='%s' required><br/>\n", mesh_password);
-    httpd_str_resp_send_chunk(req,
+    httpd_resp_send_str_chunk(req,
                         "<input type='checkbox' onclick='togglePassword(\"mesh_password\")'> Show Password<br/>\n"
                         "<br/>\n"
                         "<input type='submit' value='Update Config'>\n"
@@ -92,24 +93,24 @@ void send_root_html(
 		       "</div>\n");
 
     if(mesh_parent_connected) {
-        httpd_str_resp_send_chunk(req, 
+        httpd_resp_send_str_chunk(req, 
                 "<br/>\n"
                 "<div class='container'>\n"
                     "<h2>Nodes in Mesh Network</h2>\n"
                     "<button onclick=\"openTree()\">Open Tree View</button><br /><br />\n"
                     "<table>\n"
                         "<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>\n");
-        httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+        httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
                         "<tr><td>"MACSTREND"</td><td>WiFi Router</td> <td>1</td></tr>\n", MAC2STREND(sta_addr));
         if(mesh_tree_table != NULL && mesh_tree_count > 0) {
             for (int i = 0; i < mesh_tree_count; i++) {
-                httpd_str_format_resp_send_chunk(req, aux_buf, sizeof(aux_buf),
+                httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
                         "<tr><td>"MACSTREND"</td><td>"MACSTREND"</td> <td>%i</td></tr>\n",
                         MAC2STREND(mesh_tree_table[i].node_sta_addr), MAC2STREND(mesh_tree_table[i].parent_sta_addr), mesh_tree_table[i].layer);
             }
         }
         
-        httpd_str_resp_send_chunk(req, 
+        httpd_resp_send_str_chunk(req, 
                     "</table>\n"
                 "</div>\n"
                 "<script>\n"
@@ -120,17 +121,16 @@ void send_root_html(
                 "<br/>\n");
     }
 
-    httpd_str_resp_send_chunk(req, 
+    httpd_resp_send_str_chunk(req, 
             "</body>\n"
         "</html>\n");
 
-    //When you are finished sending all your chunks, you must call this function with buf_len as 0.
-    httpd_resp_send_chunk(req, NULL, 0);
+    HTTP_RESP_CLOSE_CHUNKS(req);
 }
 
 void send_set_wifi_html(httpd_req_t *req, bool valid_setting) {
     if(valid_setting) {
-        httpd_resp_send(req, "<!DOCTYPE html>\n"
+        httpd_resp_send_str_chunk(req, "<!DOCTYPE html>\n"
            "<html>\n"
                "<head>\n"
                    "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"
@@ -145,10 +145,12 @@ void send_set_wifi_html(httpd_req_t *req, bool valid_setting) {
                        "<p>Restarting...</p>\n"
                    "</div>\n"
                "</body>\n"
-           "</html>\n", HTTPD_RESP_USE_STRLEN);
+           "</html>\n");
     } else {
-        httpd_resp_send(req, "Invalid input", HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send_str_chunk(req, "Invalid input");
     }
+
+    HTTP_RESP_CLOSE_CHUNKS(req);
 }
 
 
@@ -156,8 +158,7 @@ void send_mesh_tree_html(
     httpd_req_t *req,
     char *mesh_json_str) 
 {
-
-    httpd_str_resp_send_chunk(req,
+    httpd_resp_send_str_chunk(req,
         "<!DOCTYPE html>\n"
         "<html lang=\"en\">\n"
         "<head>\n"
@@ -187,8 +188,7 @@ void send_mesh_tree_html(
                     ".link { stroke-width: 2px; }\n"
                 "}\n"
             "</style>\n"
-        "</head>\n");
-    httpd_str_resp_send_chunk(req,
+        "</head>\n"
         "<body>\n"
             "<div class=\"container\">\n"
                 "<h1>Mesh Network Tree</h1>\n"
@@ -204,10 +204,8 @@ void send_mesh_tree_html(
             "<script src=\"https://d3js.org/d3.v6.min.js\"></script>\n"
             "<script>\n"
                 "const data = ");
-
-    httpd_str_resp_send_chunk(req, mesh_json_str);
-
-    httpd_str_resp_send_chunk(req,
+    httpd_resp_send_str_chunk(req, mesh_json_str);
+    httpd_resp_send_str_chunk(req,
                 ";\n"
                 "const svg = d3.select(\"svg\");\n"
                 "const width = +svg.attr(\"viewBox\").split(\" \")[2];\n"
@@ -270,8 +268,7 @@ void send_mesh_tree_html(
                     "switch (layer) {\n"
                         "default: return 'node';\n"
                     "}\n"
-                "}\n");
-    httpd_str_resp_send_chunk(req,
+                "}\n"
                 "if(root.children){\n"
                     "root.children.forEach(allCollapsed ? collapse : expand);\n"
                 "}\n"
@@ -295,9 +292,7 @@ void send_mesh_tree_html(
                     "nodes.forEach(d => {\n"
                         "d.y = d.depth * 180;\n"
                     "});\n"
-                    "const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++i));\n");
-
-    httpd_str_resp_send_chunk(req,
+                    "const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++i));\n"
                     "const nodeEnter = node.enter().append('g').attr('class', d => getClass(d.data.layer)).attr('transform', d => `translate(${source.x0},${source.y0})`).on('click', (event, d) => {\n"
                         "if (d.children) {\n"
                             "d._children = d.children;\n"
@@ -316,8 +311,7 @@ void send_mesh_tree_html(
                     "nodeUpdate.transition().duration(750).attr('transform', d => `translate(${d.x},${d.y})`);\n"
                     "nodeUpdate.select('rect')\n"
                         ".attr('fill', d => getColor(d.data.layer))\n"
-                        ".attr('class', d => getClass(d.data.layer));\n");
-    httpd_str_resp_send_chunk(req,
+                        ".attr('class', d => getClass(d.data.layer));\n"
                     "const nodeExit = node.exit().transition().duration(750).attr('transform', d => `translate(${source.x},${source.y})`).remove();\n"
                     "const link = g.selectAll('path.link').data(links, d => d.id);\n"
                     "const linkEnter = link.enter().insert('path', 'g').attr('class', 'link').attr('d', d => {\n"
@@ -345,6 +339,5 @@ void send_mesh_tree_html(
         "</body>\n"
         "</html>");
 
-    // Envia o último chunk indicando o fim da resposta
-    httpd_resp_send_chunk(req, NULL, 0);
+    HTTP_RESP_CLOSE_CHUNKS(req);
 }

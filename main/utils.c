@@ -71,13 +71,24 @@ void format_mac(char *str, const uint8_t *mac) {
     sprintf(str, ""MACSTREND"", MAC2STREND(mac));
 }
 
-//envia resposta string a uma requisicao http
-void httpd_str_resp_send_chunk(httpd_req_t *req, char *response) {
-    httpd_resp_send_chunk(req, response, HTTPD_RESP_USE_STRLEN);
+// Envia resposta string a uma requisicao http de chunk em chunk
+void httpd_resp_send_str_chunk(httpd_req_t *req, char *response) {
+    const size_t total_size = strlen(response);
+    const int chunk_size = 1000;
+    char *pData = response;
+    size_t offset = 0;
+    size_t size_to_send = 0;
+
+    while (offset < total_size) {
+        size_to_send = total_size - offset < chunk_size ? total_size - offset : chunk_size;
+        httpd_resp_send_chunk(req, pData, size_to_send);
+        offset += chunk_size;
+        pData += size_to_send;
+    }
 }
 
 // Formata resposta string a uma requisicao http, e envia
-void httpd_str_format_resp_send_chunk(httpd_req_t *req, char *buffer, size_t buffer_size, const char *format, ...) {
+void httpd_resp_send_format_str_chunk(httpd_req_t *req, char *buffer, size_t buffer_size, const char *format, ...) {
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, buffer_size, format, args);

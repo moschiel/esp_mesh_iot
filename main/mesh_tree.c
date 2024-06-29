@@ -21,12 +21,12 @@ static mesh_addr_t routing_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
 extern uint8_t STA_MAC_address[6];
 
-static bool take_tree_mutex() {
+static bool take_tree_mutex(char *source) {
     if(xMutexTree == NULL) {
         xMutexTree = xSemaphoreCreateMutex();
     }
     if(xSemaphoreTake(xMutexTree, portMAX_DELAY) != pdTRUE) {
-        ESP_LOGE(TAG, "Fail to Take Tree Mutex");
+        ESP_LOGE(TAG, "Fail to Take Tree Mutex: '%s'", source);
         return false;
     }
 
@@ -47,7 +47,7 @@ static void log_tree(void) {
 }
 
 void update_tree_with_node(uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer) {
-    if (take_tree_mutex()) {
+    if (take_tree_mutex("update_tree_with_node")) {
         // Verifica se a combinação já existe no array ou se o node_sta_addr já existe
         bool node_exist = false;
         bool updated = false;
@@ -104,7 +104,7 @@ void clear_node_tree(void) {
 }
 
 void remove_non_existing_node_from_tree(void) {
-    if (take_tree_mutex()) {
+    if (take_tree_mutex("remove_non_existing_node_from_tree")) {
         int routing_table_size = 0;
         esp_mesh_get_routing_table((mesh_addr_t *)&routing_table, CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &routing_table_size);
         
@@ -136,7 +136,7 @@ SCAN_REMOVE_NODE:
 }
 
 MeshNode* get_mesh_tree_table(int *mesh_tree_count) {
-    if(take_tree_mutex()) {
+    if(take_tree_mutex("get_mesh_tree_table")) {
         MeshNode *ret = malloc(sizeof(MeshNode) * tree_node_count);
         memcpy(ret, &_mesh_tree_, sizeof(MeshNode) * tree_node_count);
         *mesh_tree_count = tree_node_count;
@@ -175,7 +175,7 @@ static void add_node_to_json(cJSON *parent, MeshNode *node, int layer) {
 
 // Função para criar o JSON da árvore de rede mesh
 char* build_mesh_tree_json(void) {
-    if (take_tree_mutex()) {
+    if (take_tree_mutex("build_mesh_tree_json")) {
         // Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
         char mac_str[9];
         format_mac(mac_str, STA_MAC_address);
