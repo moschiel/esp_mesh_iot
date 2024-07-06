@@ -179,6 +179,17 @@ bool is_mesh_parent_connected(void) {
     return is_mesh_connected;
 }
 
+bool get_mesh_root_ip(esp_netif_ip_info_t* ip_info)
+{
+    if(netif_sta && esp_mesh_is_root()) {
+        if(esp_netif_get_ip_info(netif_sta, ip_info) == ESP_OK)
+        {
+             return true;   
+        }
+    }
+    return false;
+}
+
 void mesh_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data)
 {

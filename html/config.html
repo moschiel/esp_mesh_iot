@@ -1,4 +1,3 @@
-<!-- Documento HTML apenas para referência de como é a página do WebServer -->
 <!DOCTYPE html>
 <html>
 	<head>
@@ -53,8 +52,79 @@
 			table, th, td { border:1px solid black; }
 		</style>
 		<script>
-			function formatMeshID(e) { var r = e.target.value.replace(/[^a-fA-F0-9]/g, ''); e.target.value = r.match(/.{1,2}/g).join('-'); } 
-            function togglePassword(id) { var x = document.getElementById(id); if (x.type === 'password') { x.type = 'text'; } else { x.type = 'password'; } }
+			function formatMeshID(e) { 
+				var r = e.target.value.replace(/[^a-fA-F0-9]/g, ''); 
+				e.target.value = r.match(/.{1,2}/g).join('-'); 
+			} 
+			
+			function togglePassword(id) { 
+				var x = document.getElementById(id); 
+				if (x.type === 'password') { 
+					x.type = 'text'; 
+				} else { 
+					x.type = 'password'; 
+				} 
+			}
+			
+			// Função para buscar o JSON do servidor
+			function fetchJsonData() {
+				fetch('/get_mesh_data') // Alterar a URL conforme necessário
+					.then(response => response.json())
+					.then(data => buildTable(data))
+					.catch(error => console.error('Error fetching data:', error));
+			}
+
+			// Função para construir a tabela a partir do JSON
+			function buildTable(data) {
+				let table = document.getElementById('meshTable');
+				table.innerHTML = '<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>';
+				parseNode(data, null, table);
+			}
+
+			// Função recursiva para percorrer o JSON e preencher a tabela
+			function parseNode(node, parent, table) {
+				if (node) {
+					let row = table.insertRow();
+					row.insertCell(0).textContent = node.name;
+					row.insertCell(1).textContent = parent ? parent.name : 'None';
+					row.insertCell(2).textContent = node.layer;
+					if (node.children) {
+						node.children.forEach(child => parseNode(child, node, table));
+					}
+				}
+			}
+
+			// Função para enviar a URL do firmware e acompanhar a atualização
+			function sendFirmwareURL() {
+				const url = document.getElementById('firmware_url').value;
+				const status = document.getElementById('update_status');
+				const socket = new WebSocket('ws://<ESP32-IP-ADDRESS>/update');
+
+				socket.onopen = function() {
+					status.textContent = 'Update Started...';
+					socket.send(JSON.stringify({ url: url }));
+				};
+
+				socket.onmessage = function(event) {
+					const data = JSON.parse(event.data);
+					if (data.complete) {
+						status.textContent = 'Update Complete!';
+						socket.close();
+					}
+				};
+
+				socket.onerror = function(error) {
+					console.error('WebSocket Error: ', error);
+					status.textContent = 'Update Failed!';
+				};
+
+				socket.onclose = function() {
+					console.log('WebSocket Closed');
+				};
+			}
+
+			// Chama a função de busca de JSON após o carregamento da página
+			document.addEventListener('DOMContentLoaded', fetchJsonData);
 		</script>
 	</head>
 
@@ -86,25 +156,24 @@
 			</form>
 		</div>
 		<br />
+		<!-- Container para atualização do firmware -->
+		<div class="container">
+			<h2>Update Firmware</h2>
+			<label for="firmware_url">Firmware URL:</label><br />
+			<input type="text" id="firmware_url" name="firmware_url" required /><br />
+			<button onclick="sendFirmwareURL()">Update Firmware</button>
+			<p id="update_status">Update Status: Not Started</p>
+		</div>
+		<br />
 		<div class="container">
 			<h3>Nodes in Mesh Network</h3>
 			<button onclick="openTree()">Open Tree View</button>
+			<button onclick="fetchJsonData()">Refresh Mesh</button>
 			<br /><br />
-			<table>
-				<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>
-				<tr><td>DE:2E:94</td><td>WiFi Router</td><td>1</td></tr>
-				<tr><td>58:67:48</td><td>DE:2E:94</td> <td>2</td></tr>
-				<tr><td>DD:80:9C</td><td>DE:2E:94</td> <td>2</td></tr>
-				<tr><td>DC:58:7A</td><td>58:67:48</td> <td>3</td></tr>
-				<tr><td>EC:52:78</td><td>58:67:48</td> <td>3</td></tr>
-				<tr><td>AC:53:1A</td><td>58:67:48</td> <td>3</td></tr>
-				<tr><td>3E:A7:E8</td><td>DD:80:9C</td> <td>3</td></tr>
-				<tr><td>67:58:39</td><td>DD:80:9C</td> <td>3</td></tr>
-				<tr><td>12:CD:E8</td><td>EC:52:78</td> <td>4</td></tr>
-				<tr><td>B2:84:8D</td><td>67:58:39</td> <td>4</td></tr>
-				<tr><td>E4:83:2D</td><td>EC:52:78</td> <td>4</td></tr>
-			</div>
-			  </table>
+			<table id="meshTable">
+				<!-- Tabela será preenchida dinamicamente -->
+			</table>
+		</div>
 		<script>
 			function openTree() {
 				window.open('mesh_tree', '_blank');

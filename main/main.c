@@ -21,6 +21,7 @@
 #define BUTTON_WIFI_MODE_PIN 5
 #define HOLD_TIME_MS 5000
 
+static const char *APP_VERSION = "7";
 static const char *TAG = "MAIN_APP";
 uint8_t STA_MAC_address[6];
 bool press_hold_timeout = false;
@@ -100,7 +101,7 @@ void init_IOs() {
 void app_main(void) {
 	//nvs_flash_erase();
     
-    ESP_LOGI(TAG, "App Version: 6");
+    ESP_LOGI(TAG, "App Version: %s", APP_VERSION);
 
     // Obtém o endereço da estacao MAC deste dispositvo
     esp_read_mac(STA_MAC_address, ESP_MAC_WIFI_STA);

@@ -11,21 +11,7 @@
 
 //#define USE_TREE_EXAMPLE
 #ifdef USE_TREE_EXAMPLE
-char* html_table_example = 
-"<tr><td>DE:2E:94</td><td>WiFi Router</td><td>1</td></tr>"
-"<tr><td>58:67:48</td><td>DE:2E:94</td> <td>2</td></tr>"
-"<tr><td>DD:80:9C</td><td>DE:2E:94</td> <td>2</td></tr>"
-"<tr><td>DC:58:7A</td><td>58:67:48</td> <td>3</td></tr>"
-"<tr><td>EC:52:78</td><td>58:67:48</td> <td>3</td></tr>"
-"<tr><td>AC:53:1A</td><td>58:67:48</td> <td>3</td></tr>"
-"<tr><td>3E:A7:E8</td><td>DD:80:9C</td> <td>3</td></tr>"
-"<tr><td>67:58:39</td><td>DD:80:9C</td> <td>3</td></tr>"
-"<tr><td>12:CD:E8</td><td>EC:52:78</td> <td>4</td></tr>"
-"<tr><td>B2:84:8D</td><td>67:58:39</td> <td>4</td></tr>"
-"<tr><td>E4:83:2D</td><td>EC:52:78</td> <td>4</td></tr>";
-
 char* html_json_example = "{\"name\":\"WiFi Router\",\"layer\":0,\"children\":[{\"layer\":1,\"name\":\"DE:2E:94\",\"children\":[{\"name\":\"58:67:48\",\"layer\":2,\"children\":[{\"name\":\"DC:58:7A\",\"layer\":3},{\"name\":\"EC:52:78\",\"layer\":3,\"children\":[{\"name\":\"12:CD:E8\",\"layer\":4},{\"name\":\"E4:83:2D\",\"layer\":4}]},{\"name\":\"AC:53:1A\",\"layer\":3}]},{\"name\":\"DD:80:9C\",\"layer\":2,\"children\":[{\"name\":\"3E:A7:E8\",\"layer\":3},{\"name\":\"67:58:39\",\"layer\":3,\"children\":[{\"name\":\"B2:84:8D\",\"layer\":4}]}]}]}]}";
-
 #endif
 
 //When you are finished sending all your chunks, you must call this macro
@@ -39,8 +25,7 @@ void send_root_html(
     uint8_t mesh_id[6],
     char* mesh_password,
     bool mesh_parent_connected,
-    MeshNode* mesh_tree_table,
-    int mesh_tree_count)
+    char* ip_addr)
 {
     char aux_buf[500];
 
@@ -59,10 +44,12 @@ void send_root_html(
                     "table, th, td { border:1px solid black; }\n"
                 "</style>\n"
                 "<script>\n"
+                    // Função para garantir a formatação do MESH_ID
                     "function formatMeshID(e) {\n"
                         "var r = e.target.value.replace(/[^a-fA-F0-9]/g, '');\n"
                         "e.target.value = r.match(/.{1,2}/g).join('-');\n"
                     "}\n"
+                    // Função para alterar a visibilidade da senha
                     "function togglePassword(id) {\n"
                         "var x = document.getElementById(id);\n"
                         "if (x.type === 'password') {\n"
@@ -70,7 +57,65 @@ void send_root_html(
                         "} else {\n"
                             "x.type = 'password';\n"
                         "}\n"
+                    "}\n");
+    if(mesh_parent_connected) {
+        httpd_resp_send_str_chunk(req,  
+                    // Função para buscar o JSON dos nós na rota /get_mesh_data
+                    "function fetchJsonData() {\n"
+                        "fetch('/get_mesh_data')\n"
+                            ".then(response => response.json())\n"
+                            ".then(data => buildTable(data))\n"
+                            ".catch(error => console.error('Error fetching data:', error));\n"
                     "}\n"
+                    // Função para construir a tabela de nós a partir do JSON
+                    "function buildTable(data) {\n"
+                        "let table = document.getElementById('meshTable');\n"
+                        "table.innerHTML = '<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>';\n"
+                        "parseNode(data, null, table);\n"
+                    "}\n"
+                    // Função recursiva para percorrer o JSON dos nós e preencher a tabela
+                    "function parseNode(node, parent, table) {\n"
+                        "if (node) {\n"
+                            "let row = table.insertRow();\n"
+                            "row.insertCell(0).textContent = node.name;\n"
+                            "row.insertCell(1).textContent = parent ? parent.name : 'None';\n"
+                            "row.insertCell(2).textContent = node.layer;\n"
+                            "if (node.children) {\n"
+                                "node.children.forEach(child => parseNode(child, node, table));\n"
+                            "}\n"
+                        "}\n"
+                    "}\n"
+                    // Chama a função de busca de JSON dos nós após o carregamento da página
+			        "document.addEventListener('DOMContentLoaded', fetchJsonData);\n"
+                    // Função para enviar a URL do firmware e acompanhar a atualização
+                    "function sendFirmwareURL() {\n"
+                        "const url = document.getElementById('firmware_url').value;\n"
+                        "const status = document.getElementById('update_status');\n");
+        httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
+                        "const socket = new WebSocket('ws://%s/update');\n", ip_addr);
+        httpd_resp_send_str_chunk(req, 
+                        "socket.onopen = function() {\n"
+                            "status.textContent = 'Update Started...';\n"
+                            "socket.send(JSON.stringify({ url: url }));\n"
+                        "};\n"
+                        "socket.onmessage = function(event) {\n"
+                            "const data = JSON.parse(event.data);\n"
+                            "if (data.complete) {\n"
+                                "status.textContent = 'Update Complete!';\n"
+                                "socket.close();\n"
+                            "}\n"
+                        "};\n"
+                        "socket.onerror = function(error) {\n"
+                            "console.error('WebSocket Error: ', error);\n"
+                            "status.textContent = 'Update Failed!';\n"
+                        "};\n"
+                        "socket.onclose = function() {\n"
+                            "console.log('WebSocket Closed');\n"
+                        "};\n"
+                    "}\n");
+    } //end mesh_parent_connected
+
+    httpd_resp_send_str_chunk(req,   
                 "</script>\n"
 	       "</head>\n"
 	       "<body>\n"
@@ -114,27 +159,21 @@ void send_root_html(
     if(mesh_parent_connected) {
         httpd_resp_send_str_chunk(req, 
                 "<br/>\n"
+        		"<div class=\"container\">\n"
+                    "<h2>Update Firmware</h2>\n"
+                    "<label for=\"firmware_url\">Firmware URL:</label><br />\n"
+                    "<input type=\"text\" id=\"firmware_url\" name=\"firmware_url\" required /><br />\n"
+                    "<button onclick=\"sendFirmwareURL()\">Update Firmware</button>\n"
+                    "<p id=\"update_status\">Update Status: Not Started</p>\n"
+                "</div>\n"
+                "<br/>\n"
                 "<div class='container'>\n"
                     "<h2>Nodes in Mesh Network</h2>\n"
+                    "<button onclick=\"fetchJsonData()\">Refresh</button>\n"
                     "<button onclick=\"openTree()\">Open Tree View</button><br /><br />\n"
-                    "<table>\n"
-                        "<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>\n");
-        #ifdef USE_TREE_EXAMPLE
-        httpd_resp_send_str_chunk(req, html_table_example);
-        #else
-        httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<tr><td>"MACSTREND"</td><td>WiFi Router</td> <td>1</td></tr>\n", MAC2STREND(sta_addr));
-        if(mesh_tree_table != NULL && mesh_tree_count > 0) {
-            for (int i = 0; i < mesh_tree_count; i++) {
-                httpd_resp_send_format_str_chunk(req, aux_buf, sizeof(aux_buf),
-                        "<tr><td>"MACSTREND"</td><td>"MACSTREND"</td> <td>%i</td></tr>\n",
-                        MAC2STREND(mesh_tree_table[i].node_sta_addr), MAC2STREND(mesh_tree_table[i].parent_sta_addr), mesh_tree_table[i].layer);
-            }
-        }
-        #endif
-        
-        httpd_resp_send_str_chunk(req, 
-                    "</table>\n"
+                    "<table id=\"meshTable\">\n"
+				        //<!-- Tabela será preenchida dinamicamente -->
+			        "</table>\n"
                 "</div>\n"
                 "<script>\n"
                     "function openTree() {\n"
@@ -142,7 +181,7 @@ void send_root_html(
                     "}\n"
                 "</script>\n"
                 "<br/>\n");
-    }
+    } //end mesh_parent_connected
 
     httpd_resp_send_str_chunk(req, 
             "</body>\n"

@@ -18,8 +18,7 @@ void send_root_html(
     uint8_t mesh_id[6],
     char* mesh_password,
     bool mesh_parent_connected,
-    MeshNode* mesh_tree,
-    int mesh_tree_count
+    char* ip_addr
 );
 
 void send_set_wifi_html(httpd_req_t *req, bool valid_setting);

@@ -82,5 +82,6 @@ uint8_t* mesh_netif_get_station_mac(void);
 
 void start_mesh(char* router_ssid, char* router_password, uint8_t mesh_id[6], char* mesh_password);
 bool is_mesh_parent_connected(void);
+bool get_mesh_root_ip(esp_netif_ip_info_t* ip_info);
 
 #endif // MESH_NETWORK_H_
