@@ -18,7 +18,7 @@
 #define MESH_ID_KEY "mesh_id"  // Chave para o ID da rede mesh na NVS
 #define MESH_PASSWORD_KEY "mesh_password"  // Chave para a senha da rede mesh na NVS
 #define APP_MODE_KEY "app_mode" // Chave para a modo da aplicacao na NVS
-
+#define OTA_FW_URL_KEY "ota_fw_url"
 
 static const char *TAG = "APP_CONFIG";
 
@@ -136,4 +136,33 @@ APP_MODE_t nvs_get_app_mode(void) {
         nvs_close(nvs_handle);
     }
     return (APP_MODE_t)mode;
+}
+
+//Salva na NVS a ultimo url para OTA
+esp_err_t nvs_set_ota_fw_url(const char *fw_url) {
+    ESP_LOGI(TAG, "Setting fw url: %s", fw_url);
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_set_str(nvs_handle, OTA_FW_URL_KEY, fw_url);
+    nvs_commit(nvs_handle);
+    nvs_close(nvs_handle);
+    return err;
+}
+
+esp_err_t nvs_get_ota_fw_url(char *fw_url, size_t max_url_len) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_get_str(nvs_handle, OTA_FW_URL_KEY, fw_url, &max_url_len);
+    }
+    nvs_close(nvs_handle);
+
+    if(err != ESP_OK) {
+        ESP_LOGE(TAG, "Falha ao obter fw url");
+    }
+    return err;
 }

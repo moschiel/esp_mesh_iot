@@ -2,9 +2,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "cJSON.h"
+#include "esp_log.h"
 
 #include "messages.h"
 #include "utils.h"
+
+static const char* TAG = "MESSAGES";
 
 
 void tx_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer) {
@@ -34,7 +37,7 @@ void tx_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], ui
 
 bool rx_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int *layer) {
     if (root == NULL) {
-        return -1;  // Retorna -1 se houver um erro no parse do JSON
+        return false;
     }
 
     // Extrai os campos do JSON
@@ -55,6 +58,28 @@ bool rx_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent
     }
 
     return false;  // Retorna false se houver algum erro nos campos do JSON
+}
+
+bool rx_msg_fw_update_request(char* payload, char* fw_url) {
+    cJSON *root = cJSON_Parse(payload);
+    if (root == NULL) {
+        ESP_LOGE(TAG, "Fail to parse JSON");
+        return false;
+    }
+
+    bool ret;
+    cJSON *fw_url_json = cJSON_GetObjectItem(root, "fw_url");
+    if(fw_url_json && cJSON_IsString(fw_url_json)) {
+        strcpy(fw_url, fw_url_json->valuestring);
+        ret = true;
+    } else {
+        ESP_LOGE(TAG, "Fail to parse 'fw_url'");
+        ret = false;
+    }
+
+    cJSON_Delete(root);
+
+    return ret;
 }
 
 

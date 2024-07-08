@@ -109,14 +109,14 @@ void send_ws_frame_str(httpd_req_t *req, char *payload)
 }
 
 //Recebe String via WebSocket
-esp_err_t receive_ws_frame_str(httpd_req_t *req, char *payload)
+esp_err_t receive_ws_frame_str(httpd_req_t *req, char *payload, uint16_t size)
 {
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
     ws_pkt.type = HTTPD_WS_TYPE_TEXT;
     ws_pkt.payload = (uint8_t *)payload;
     ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, sizeof(payload));
+    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, size);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
         return ret;

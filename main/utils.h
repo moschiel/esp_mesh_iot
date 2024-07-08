@@ -19,6 +19,6 @@ void httpd_resp_send_str_chunk(httpd_req_t *req, char *response);
 void httpd_resp_send_format_str_chunk(httpd_req_t *req, char *buffer, size_t buffer_size, const char *format, ...);
 void format_mac(char *str, const uint8_t *mac);
 void send_ws_frame_str(httpd_req_t *req, char *payload);
-esp_err_t receive_ws_frame_str(httpd_req_t *req, char *payload);
+esp_err_t receive_ws_frame_str(httpd_req_t *req, char *payload, uint16_t size);
 
 #endif /* MAIN_UTILS_H_ */

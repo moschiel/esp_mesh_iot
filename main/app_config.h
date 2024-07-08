@@ -44,5 +44,7 @@ esp_err_t nvs_set_mesh_credentials(const uint8_t *mesh_id, const char *mesh_pass
 esp_err_t nvs_get_mesh_credentials(uint8_t *mesh_id, char *mesh_password, size_t mesh_password_len);
 void nvs_set_app_mode(APP_MODE_t mode);
 APP_MODE_t nvs_get_app_mode(void);
+esp_err_t nvs_set_ota_fw_url(const char *fw_url);
+esp_err_t nvs_get_ota_fw_url(char *fw_url, size_t max_url_len);
 
 #endif /* APP_CONFIG_H_ */

@@ -21,7 +21,7 @@
 #define BUTTON_WIFI_MODE_PIN 5
 #define HOLD_TIME_MS 5000
 
-static const char *APP_VERSION = "7";
+static const char *APP_VERSION = "9";
 static const char *TAG = "MAIN_APP";
 uint8_t STA_MAC_address[6];
 bool press_hold_timeout = false;

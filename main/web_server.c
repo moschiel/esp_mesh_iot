@@ -16,6 +16,7 @@
 #include "mesh_network.h"
 #include "mesh_tree.h"
 #include "ota.h"
+#include "messages.h"
 
 // Define a macro MIN se não estiver definida
 #ifndef MIN
@@ -64,6 +65,10 @@ static esp_err_t root_get_configs_handler(httpd_req_t *req) {
     char mesh_password[MAX_PASS_LEN];
     nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
 
+    //Obtem ultimo fw url
+    char fw_url[100] = {0};
+    nvs_get_ota_fw_url(fw_url, sizeof(fw_url));
+
     char response[500];
     sprintf(response, 
         "{"
@@ -72,14 +77,16 @@ static esp_err_t root_get_configs_handler(httpd_req_t *req) {
             "\"router_password\":\"%s\","
             "\"mesh_id\":\""MESHSTR"\"," 
             "\"mesh_password\":\"%s\","
-            "\"is_connected\":%s"
+            "\"is_connected\":%s,"
+            "\"fw_url\":\"%s\""
         "}",
         MAC2STR(STA_MAC_address),
         router_ssid,
         router_password,
         MESH2STR(mesh_id),
         mesh_password,
-        is_mesh_parent_connected()? "true":"false"
+        is_mesh_parent_connected()? "true":"false",
+        fw_url
     );
 
     httpd_resp_set_type(req, "application/json");
@@ -196,7 +203,7 @@ static esp_err_t mesh_tree_data_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Manipulador para rota "ws:/update" para OTA
+// Manipulador para rota "ws_update" para OTA
 #if BLA
 static const esp_err_t websocket_update_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "ENTER WEBSOCKET");
@@ -238,10 +245,21 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Websocket handshake");
-        //send_ws_frame_str(req, "{\"status\": \"Hello from ESP32\"}");
+        // send_ws_frame_str(req, "{\"ota_msg\": \"Hello from ESP32\"}");
     } else {
-        ESP_LOGI(TAG, "Rcv Socket Method: %i", req->method);
-        
+        //se nao chegar GET, é mensagem
+        char payload[500] = {0};
+        if(receive_ws_frame_str(req, payload, sizeof(payload)) == ESP_OK) {
+            ESP_LOGI(TAG, "Rcv Socket Method: %i, Data: %s", req->method, payload);
+
+            char fw_url[100];
+            if(rx_msg_fw_update_request(payload, fw_url)) {
+                nvs_set_ota_fw_url(fw_url);
+                start_ota(fw_url, req);
+            } else {
+                send_ws_ota_status(req, "Fail to parse JSON", true);
+            }
+        }
     }
     /*else if (req->method == HTTP_POST) {
         httpd_ws_frame_t ws_pkt;
@@ -310,9 +328,9 @@ static const httpd_uri_t mesh_tree_data_uri = {
     .user_ctx  = NULL
 };
 
-// Definição da rota WebSocket "/update" para acompanhar status do OTA
+// Definição da rota WebSocket "/ws_update" para acompanhar status do OTA
 static httpd_uri_t ws_update_fw_uri = {
-    .uri        = "/update",
+    .uri        = "/ws_update",
     .method     = HTTP_GET,
     .handler    = ws_update_fw_handler,
     .is_websocket = true,
