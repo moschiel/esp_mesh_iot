@@ -221,6 +221,44 @@ char* build_mesh_tree_json(void) {
     return NULL;
 }
 
+// Função para criar o JSON da lista de nos de rede mesh
+char* build_mesh_list_json(void) {
+    if (take_tree_mutex("build_mesh_list_json")) {
+        // Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
+        char mac_str[9];
+
+        cJSON *root = cJSON_CreateObject();
+        cJSON *nodes = cJSON_AddArrayToObject(root, "nodes");
+        cJSON *mainNode = cJSON_CreateObject();
+        format_mac(mac_str, STA_MAC_address);
+        cJSON_AddStringToObject(mainNode, "name", mac_str);
+        cJSON_AddStringToObject(mainNode, "parent", "WiFi Router");
+        cJSON_AddNumberToObject(mainNode, "layer", 1);
+        cJSON_AddItemToArray(nodes, mainNode);
+
+        for (int i = 0; i < tree_node_count; i++) {
+            cJSON *node = cJSON_CreateObject();
+            format_mac(mac_str, _mesh_tree_[i].node_sta_addr);
+            cJSON_AddStringToObject(node, "name", mac_str);
+            format_mac(mac_str, _mesh_tree_[i].parent_sta_addr);
+            cJSON_AddStringToObject(node, "parent", mac_str);
+            cJSON_AddNumberToObject(node, "layer", _mesh_tree_[i].layer);
+            cJSON_AddItemToArray(nodes, node);
+        }
+
+        char* ret = cJSON_PrintUnformatted(root); //json em uma unica linha
+
+        // Limpar memória alocada para o JSON
+        cJSON_Delete(root);
+
+        give_tree_mutex();
+        // quem usar esse retorno, deve lembrar de dar free nele
+        return ret;
+    }
+
+    return NULL;
+}
+
 /*
 static void monitor_tree_task(void *arg) {
     if(xMutexTree == NULL) {

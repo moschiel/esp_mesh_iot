@@ -16,7 +16,7 @@
 
 extern uint8_t STA_MAC_address[6];
 
-//static const char *TAG = "UTILS";
+static const char *TAG = "UTILS";
 
 void print_chip_info(void) {
     /* Print chip information */
@@ -95,4 +95,32 @@ void httpd_resp_send_format_str_chunk(httpd_req_t *req, char *buffer, size_t buf
     va_end(args);
 
     httpd_resp_send_chunk(req, buffer, HTTPD_RESP_USE_STRLEN);
+}
+
+//Envia String via Websocket
+void send_ws_frame_str(httpd_req_t *req, char *payload)
+{
+    httpd_ws_frame_t ws_pkt;
+    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+    ws_pkt.payload = (uint8_t*)payload;
+    ws_pkt.len = strlen(payload);
+    httpd_ws_send_frame(req, &ws_pkt);
+}
+
+//Recebe String via WebSocket
+esp_err_t receive_ws_frame_str(httpd_req_t *req, char *payload)
+{
+    httpd_ws_frame_t ws_pkt;
+    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+    ws_pkt.payload = (uint8_t *)payload;
+    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, sizeof(payload));
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
+        return ret;
+    }
+    payload[ws_pkt.len] = '\0';
+    return ESP_OK;
 }

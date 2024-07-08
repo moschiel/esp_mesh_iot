@@ -21,8 +21,8 @@ void tx_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], ui
 
     // Adiciona os campos ao JSON
     cJSON_AddNumberToObject(root, "msg_id", MSG_NODE_CONNECTED);
-    cJSON_AddStringToObject(root, "node_sta_addr", node_addr_str);
-    cJSON_AddStringToObject(root, "parent_sta_addr", parent_addr_str);
+    cJSON_AddStringToObject(root, "node_addr", node_addr_str);
+    cJSON_AddStringToObject(root, "parent_addr", parent_addr_str);
     cJSON_AddNumberToObject(root, "layer", layer);
 
     // Converte o objeto JSON para string e salva no buffer
@@ -38,8 +38,8 @@ bool rx_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent
     }
 
     // Extrai os campos do JSON
-    cJSON *node_addr_json = cJSON_GetObjectItem(root, "node_sta_addr");
-    cJSON *parent_addr_json = cJSON_GetObjectItem(root, "parent_sta_addr");
+    cJSON *node_addr_json = cJSON_GetObjectItem(root, "node_addr");
+    cJSON *parent_addr_json = cJSON_GetObjectItem(root, "parent_addr");
     cJSON *layer_json = cJSON_GetObjectItem(root, "layer");
 
     if (node_addr_json && cJSON_IsString(node_addr_json) &&

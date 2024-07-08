@@ -179,15 +179,16 @@ bool is_mesh_parent_connected(void) {
     return is_mesh_connected;
 }
 
-bool get_mesh_root_ip(esp_netif_ip_info_t* ip_info)
+char* get_mesh_root_ip(void)
 {
     if(netif_sta && esp_mesh_is_root()) {
-        if(esp_netif_get_ip_info(netif_sta, ip_info) == ESP_OK)
+        esp_netif_ip_info_t ip_info;
+        if(esp_netif_get_ip_info(netif_sta, &ip_info) == ESP_OK)
         {
-             return true;   
+            return ip4addr_ntoa((const ip4_addr_t*)&(ip_info.ip));
         }
     }
-    return false;
+    return NULL;
 }
 
 void mesh_event_handler(void *arg, esp_event_base_t event_base,
