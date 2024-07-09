@@ -1,17 +1,20 @@
-#ifndef HTML_SOURCE_H_
-#define HTML_SOURCE_H_
+#ifndef HTML_MACROS_H_
+#define HTML_MACROS_H_
 
-#if USE_HTML_FROM_SOURCE
+#if USE_HTML_FROM_MACROS
 
 /* START HTML MACROS AREA */
 
 /*
- * Automatically generated code by 'htmlToMacroString.exe'
- * containing the HTML code converted to macros, the parameters are:
+ * Automatically generated code by 'HTML-to-Macro-String-Converter'
+ * containing the HTML code converted to macros.
+ * The parameters are:
  *    Minify: true
- *    Output: .\main\html_source.h
- *    Input[1]: .\data\index.html, Macro: INDEX_HTML
- *    Input[2]: .\data\mesh-graph.html, Macro: TREE_VIEW_HTML
+ *    Output: ./main/html_macros.h
+ *    Input[1]: ./data/index.html, Macro: INDEX_HTML
+ *    Input[2]: ./data/mesh-graph.html, Macro: TREE_VIEW_HTML
+ *
+ * Project Repository: https://github.com/moschiel/HTML-to-Macro-String-Converter
  */
 
 #define INDEX_HTML "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><style>body { font-family: Arial, sans-serif; margin: auto; padding: 20px; justify-content: center; align-items: center; background-color: #f0f0f0; display: flex; flex-direction: column; } .container { width: 100%; max-width: 400px; background-color: #fff; padding: 20px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); border-radius: 8px; text-align: left; } input[type='text'], input[type='password'] { width: 80%; padding: 10px; margin: 10px 0px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; } button, input[type='submit'] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; } button:hover, input[type='submit']:hover { background-color: #45a049; } table { border-collapse: collapse; width: 100%; } table, th, td { border:1px solid black; }</style><script>let ws;function formatMeshID(e){var r = e.target.value.replace(/[^a-fA-F0-9]/g,'');e.target.value = r.match(/.{1,2}/g).join('-');}function togglePassword(id){var x = document.getElementById(id);if (x.type === 'password'){x.type = 'text';}else{x.type = 'password';}}function fetchJsonConfigs(){fetch('/get_configs') .then(response => response.json()) .then(data => applyConfigs(data)) .catch(error => console.error('Error fetching data:',error));}function applyConfigs(data){document.getElementById('device_mac_addr').value = data.device_mac_addr;document.getElementById('router_ssid').value = data.router_ssid;document.getElementById('router_password').value = data.router_password;document.getElementById('mesh_id').value = data.mesh_id;document.getElementById('mesh_password').value = data.mesh_password;document.getElementById('firmware_url').value = data.fw_url;}function fetchJsonMeshList(){fetch('/mesh_list_data') .then(response => response.json()) .then(data => buildMeshTable(data)) .catch(error => console.error('Error fetching data:',error));}function buildMeshTable(data){let table = document.getElementById('meshTable');table.innerHTML = '<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>';if(data.nodes){data.nodes.forEach(node =>{let row = table.insertRow();row.insertCell(0).textContent = node.name;row.insertCell(1).textContent = node.parent;row.insertCell(2).textContent = node.layer;});}}function sendFirmwareURL(){if(ws != null && ws.readyState === WebSocket.OPEN) return;const url = document.getElementById('firmware_url').value;const ota_status = document.getElementById('ota_status');ws = new WebSocket('ws://' + window.location.host + '/ws_update');ws.onopen = function(){ota_status.textContent = 'Socket Handshake';ws.send(JSON.stringify({fw_url:url}));};ws.onmessage = function(event){const data = JSON.parse(event.data);if (data.msg){ota_status.textContent = data.msg;}if (data.done){ws.close();}};ws.onerror = function(error){console.error('WebSocket Error: ',error);ota_status.textContent = 'Update Failed!';};ws.onclose = function(){console.log('WebSocket Closed');};}function submitConfigForm(event){event.preventDefault();const formData = new FormData(event.target);const params = new URLSearchParams();for (const pair of formData.entries()){params.append(pair[0],pair[1]);}const statusConfig = document.getElementById('status_config');statusConfig.textContent = 'Command sent';fetch('/set_wifi',{method:'POST',body:params.toString(),headers:{'Content-Type':'application/x-www-form-urlencoded'}}) .then(response =>{if (response.ok){statusConfig.textContent = 'WiFi settings updated, Restarting...';}else{statusConfig.textContent = 'Error setting configs';}}) .catch(error =>{statusConfig.textContent = 'Error sending configs';console.error('Error:',error);});}document.addEventListener('DOMContentLoaded',fetchJsonConfigs);document.addEventListener('DOMContentLoaded',fetchJsonMeshList);</script></head><body><br /><p>v1.5</p><div class=\"container\"><h2>Device Info</h2><p >Root MAC address:<span id=\"device_mac_addr\">08:d1:f9:dd:80:9c</span></p></div><br /><div class=\"container\"><form onsubmit=\"submitConfigForm(event)\"><h2>Configure WiFi Router</h2><label for=\"router_ssid\">Router SSID:</label><br /><input type=\"text\" id=\"router_ssid\" name=\"router_ssid\" required /><br /><label for=\"router_password\">Router Password:</label><br /><input type=\"password\" id=\"router_password\" name=\"router_password\" required /><br /><input type=\"checkbox\" onclick='togglePassword(\"router_password\")' />Show Password<br /><br /><br /><h2>Configure Mesh Network</h2><label for=\"mesh_id\">Mesh ID:</label><br /><input type=\"text\" id=\"mesh_id\" name=\"mesh_id\" required oninput=\"formatMeshID(event)\" maxlength=\"17\" /><br /><label for=\"mesh_password\">Mesh Password:</label><br /><input type=\"password\" id=\"mesh_password\" name=\"mesh_password\" required /><br /><input type=\"checkbox\" onclick='togglePassword(\"mesh_password\")' />Show Password<br /><br /><input type=\"submit\" value=\"Update Config\" /><p id=\"status_config\"></p></form></div><br /><div class=\"container\"><h2>Update Firmware</h2><label for=\"firmware_url\">Firmware URL:</label><br /><input type=\"text\" id=\"firmware_url\" name=\"firmware_url\" required /><br /><button onclick=\"sendFirmwareURL()\">Update Firmware</button><p id=\"ota_status\">Update Status: Not Started</p></div><br /><div class=\"container\"><h3>Nodes in Mesh Network</h3><button onclick=\"openTree()\">Open Tree View</button><button onclick=\"fetchJsonMeshList()\">Refresh</button><br /><br /><table id=\"meshTable\"></table></div><script>function openTree(){window.open('mesh_tree_view','_blank');}</script></body></html>"
@@ -20,5 +23,12 @@
 
 /* END HTML MACROS AREA */
 
-#endif // USE_HTML_FROM_SOURCE
-#endif // HTML_SOURCE_H_
+#endif // USE_HTML_FROM_MACROS
+#endif // HTML_MACROS_H_
+
+
+
+
+
+
+
