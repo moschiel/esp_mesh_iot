@@ -72,7 +72,7 @@ void format_mac(char *str, const uint8_t *mac) {
 }
 
 // Envia resposta string a uma requisicao http de chunk em chunk
-void httpd_resp_send_str_chunk(httpd_req_t *req, char *response) {
+void httpd_resp_send_str_chunk(httpd_req_t *req, const char *response) {
     const size_t total_size = strlen(response);
     const int chunk_size = 1000;
     char *pData = response;

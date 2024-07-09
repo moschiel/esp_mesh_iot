@@ -17,12 +17,12 @@
 #include "mesh_tree.h"
 #include "ota.h"
 #include "messages.h"
+#include "html_source.h"
 
 // Define a macro MIN se não estiver definida
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#endif
-
+#endif  
 
 static const char *TAG = "WEB_SERVER";
 static httpd_handle_t webserver_handle = NULL;
@@ -30,11 +30,17 @@ static httpd_handle_t webserver_handle = NULL;
 extern uint8_t STA_MAC_address[6];
 
 static void wifi_init_softap(void);
+#if USE_HTML_FROM_SPIFFS
 static void init_spiffs(void);
+#endif
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
-
+#if USE_HTML_FROM_SOURCE
+    httpd_resp_send_str_chunk(req, INDEX_HTML);
+    httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
+    return ESP_OK;
+#elif USE_HTML_FROM_SPIFFS
     FILE* f = fopen("/spiffs/index.html", "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
@@ -50,6 +56,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
+#endif
 }
 
 static esp_err_t root_get_configs_handler(httpd_req_t *req) {
@@ -171,7 +178,12 @@ static esp_err_t mesh_list_data_handler(httpd_req_t *req)
 
 // Manipulador para a rota "/mesh_tree_view" para carregar a vizualizacao da arvore
 static esp_err_t mesh_tree_view_handler(httpd_req_t *req) {
-     FILE* f = fopen("/spiffs/mesh-graph.html", "r");
+#if USE_HTML_FROM_SOURCE
+    httpd_resp_send_str_chunk(req, TREE_VIEW_HTML);
+    httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
+    return ESP_OK;
+#elif USE_HTML_FROM_SPIFFS
+    FILE* f = fopen("/spiffs/mesh-graph.html", "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
         httpd_resp_send_404(req);
@@ -186,6 +198,7 @@ static esp_err_t mesh_tree_view_handler(httpd_req_t *req) {
 
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
+#endif
 }
 
 // Manipulador para a rota "/mesh_tree_data" que retorna o json da arvore
@@ -204,43 +217,6 @@ static esp_err_t mesh_tree_data_handler(httpd_req_t *req)
 }
 
 // Manipulador para rota "ws_update" para OTA
-#if BLA
-static const esp_err_t websocket_update_handler(httpd_req_t *req) {
-    ESP_LOGI(TAG, "ENTER WEBSOCKET");
-    if (req->method == HTTP_GET) {
-        return ESP_OK;
-    }
-
-    char buf[256];
-    esp_err_t ret = receive_ws_frame_str(req, buf);
-    if(ret != ESP_OK) {
-        return ret;
-    }
-
-    // Parse the received JSON
-    cJSON *root = cJSON_Parse(buf);
-    cJSON *url = cJSON_GetObjectItem(root, "url");
-
-    if (url) {
-        // Send websocket message to indicate the update has started
-        send_ws_frame_str(req, "{\"status\": \"Update Started\"}");
-
-        if (execute_ota(url->valuestring)) {
-            ESP_LOGI(TAG, "Rebooting...");
-            // Send websocket message to indicate the update is completed
-            send_ws_frame_str(req, "{\"status\": \"Update Complete, ESP restarted\"}");
-            // Da tempo pra enviar o retorno antes de resetar a ESP
-            vTaskDelay(pdMS_TO_TICKS(1000)); 
-            esp_restart();
-        } else {
-            send_ws_frame_str(req, "{\"status\": \"Update Failed\"}");
-        }
-    }
-
-    cJSON_Delete(root);
-    return ESP_OK;
-}
-#endif
 static esp_err_t ws_update_fw_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
@@ -261,81 +237,75 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
             }
         }
     }
-    /*else if (req->method == HTTP_POST) {
-        httpd_ws_frame_t ws_pkt;
-        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-        ws_pkt.payload = malloc(128);
-        ws_pkt.len = httpd_req_recv(req, (char*)ws_pkt.payload, ws_pkt.len);
-        if (ws_pkt.len <= 0) {
-            if (ws_pkt.len == HTTPD_SOCK_ERR_TIMEOUT) {
-                httpd_ws_send_frame(req, &ws_pkt);
-            }
-            free(ws_pkt.payload);
-            return ESP_FAIL;
-        }
-        ESP_LOGI(TAG, "Received packet with message: %s", ws_pkt.payload);
-        free(ws_pkt.payload);
-    }*/
     return ESP_OK;
 }
 
-// Definição da rota raiz
-static const httpd_uri_t root_uri = {
-    .uri       = "/",
-    .method    = HTTP_GET,
-    .handler   = root_get_handler,
-    .user_ctx  = NULL
-};
+static void register_uris(void) {
+    // Definição da rota raiz
+    httpd_uri_t root_uri = {
+        .uri       = "/",
+        .method    = HTTP_GET,
+        .handler   = root_get_handler,
+        .user_ctx  = NULL
+    };
 
-// Definição da rota "/get_configs" para requisitar configs
-static const httpd_uri_t get_configs_uri = {
-    .uri       = "/get_configs",
-    .method    = HTTP_GET,
-    .handler   = root_get_configs_handler,
-    .user_ctx  = NULL
-};
+    // Definição da rota "/get_configs" para requisitar configs
+    httpd_uri_t get_configs_uri = {
+        .uri       = "/get_configs",
+        .method    = HTTP_GET,
+        .handler   = root_get_configs_handler,
+        .user_ctx  = NULL
+    };
 
-// Definição da rota "/mesh_list_data"
-static const httpd_uri_t mesh_list_data_uri = {
-    .uri       = "/mesh_list_data",
-    .method    = HTTP_GET,
-    .handler   = mesh_list_data_handler,
-    .user_ctx  = NULL
-};
+    // Definição da rota "/mesh_list_data"
+    httpd_uri_t mesh_list_data_uri = {
+        .uri       = "/mesh_list_data",
+        .method    = HTTP_GET,
+        .handler   = mesh_list_data_handler,
+        .user_ctx  = NULL
+    };
 
-// Definição da rota "/set_wifi"
-static const httpd_uri_t set_wifi_uri = {
-    .uri       = "/set_wifi",
-    .method    = HTTP_POST,
-    .handler   = set_wifi_post_handler,
-    .user_ctx  = NULL
-};
+    // Definição da rota "/set_wifi"
+    httpd_uri_t set_wifi_uri = {
+        .uri       = "/set_wifi",
+        .method    = HTTP_POST,
+        .handler   = set_wifi_post_handler,
+        .user_ctx  = NULL
+    };
 
-// Definição da rota "/mesh_tree" para plotar a árvore da rede mesh
-static const httpd_uri_t mesh_tree_view_uri = {
-    .uri       = "/mesh_tree_view",
-    .method    = HTTP_GET,
-    .handler   = mesh_tree_view_handler,
-    .user_ctx  = NULL
-};
+    // Definição da rota "/mesh_tree" para plotar a árvore da rede mesh
+    httpd_uri_t mesh_tree_view_uri = {
+        .uri       = "/mesh_tree_view",
+        .method    = HTTP_GET,
+        .handler   = mesh_tree_view_handler,
+        .user_ctx  = NULL
+    };
 
-// Definição da rota "/mesh_tree_data"
-static const httpd_uri_t mesh_tree_data_uri = {
-    .uri       = "/mesh_tree_data",
-    .method    = HTTP_GET,
-    .handler   = mesh_tree_data_handler,
-    .user_ctx  = NULL
-};
+    // Definição da rota "/mesh_tree_data"
+    httpd_uri_t mesh_tree_data_uri = {
+        .uri       = "/mesh_tree_data",
+        .method    = HTTP_GET,
+        .handler   = mesh_tree_data_handler,
+        .user_ctx  = NULL
+    };
 
-// Definição da rota WebSocket "/ws_update" para acompanhar status do OTA
-static httpd_uri_t ws_update_fw_uri = {
-    .uri        = "/ws_update",
-    .method     = HTTP_GET,
-    .handler    = ws_update_fw_handler,
-    .is_websocket = true,
-    .user_ctx   = NULL
-};
+    // Definição da rota WebSocket "/ws_update" para acompanhar status do OTA
+    httpd_uri_t ws_update_fw_uri = {
+        .uri        = "/ws_update",
+        .method     = HTTP_GET,
+        .handler    = ws_update_fw_handler,
+        .is_websocket = true,
+        .user_ctx   = NULL
+    };
+
+    httpd_register_uri_handler(webserver_handle, &root_uri);
+    httpd_register_uri_handler(webserver_handle, &get_configs_uri);
+    httpd_register_uri_handler(webserver_handle, &mesh_list_data_uri);
+    httpd_register_uri_handler(webserver_handle, &set_wifi_uri);
+    httpd_register_uri_handler(webserver_handle, &ws_update_fw_uri);
+    httpd_register_uri_handler(webserver_handle, &mesh_tree_view_uri);
+    httpd_register_uri_handler(webserver_handle, &mesh_tree_data_uri);
+}
 
 // Inicia o servidor web
 void start_webserver(bool init_wifi_ap) { 
@@ -358,17 +328,12 @@ void start_webserver(bool init_wifi_ap) {
     //config.send_wait_timeout = 10;  // Ajusta o tempo de espera para enviar (em segundos)
 
     if (httpd_start(&webserver_handle, &config) == ESP_OK) {
-        httpd_register_uri_handler(webserver_handle, &root_uri);
-        httpd_register_uri_handler(webserver_handle, &get_configs_uri);
-        httpd_register_uri_handler(webserver_handle, &mesh_list_data_uri);
-        httpd_register_uri_handler(webserver_handle, &set_wifi_uri);
-        httpd_register_uri_handler(webserver_handle, &ws_update_fw_uri);
-        httpd_register_uri_handler(webserver_handle, &mesh_tree_view_uri);
-        httpd_register_uri_handler(webserver_handle, &mesh_tree_data_uri);
+        register_uris();
         ESP_LOGI(TAG, "WebServer Iniciado com sucesso.");
-        
+#if USE_HTML_FROM_SPIFFS
         // Inicialize o SPIFFS, onde fica armazenado os arquivos HTML
         init_spiffs();
+#endif
     } else {
         ESP_LOGE(TAG, "WebServer falhou.");
         webserver_handle = NULL;
@@ -428,6 +393,7 @@ static void wifi_init_softap(void) {
 }
 
 
+#if USE_HTML_FROM_SPIFFS
 // Função para inicializar o SPIFFS, onde fica armazenado os arquivos HTML
 static void init_spiffs(void)
 {
@@ -456,6 +422,7 @@ static void init_spiffs(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
     } else {
-        ESP_LOGI(TAG, "SPIFFS partition size total: %d, used: %d", total, used);
+        ESP_LOGI(TAG, "SPIFFS partition size total: %d, used: %d (%u%%)", total, used, (uint8_t)(((float)used/(float)total)*100.0));
     }
 }
+#endif

@@ -258,38 +258,3 @@ char* build_mesh_list_json(void) {
 
     return NULL;
 }
-
-/*
-static void monitor_tree_task(void *arg) {
-    if(xMutexTree == NULL) {
-        xMutexTree = xSemaphoreCreateMutex();
-    }
-
-    ESP_LOGW(TAG, "Started Tree Task");
-    
-    while(1) {
-        if (xSemaphoreTake(xMutexTree, portMAX_DELAY) == pdTRUE) {
-            if(esp_mesh_is_root() && is_mesh_parent_connected()) {
-                remove_non_existing_node_from_tree();
-            } else {
-                clear_tree();
-                break; //sai do while, e vair deletar a tarefa
-            }
-            
-        }
-        vTaskDelay(1 * 1000 / portTICK_PERIOD_MS);
-    }
-
-    ESP_LOGW(TAG, "Deleted Tree Task");
-    tree_monitor_started = false;
-    vTaskDelete(NULL);
-}
-
-void start_tree_monitor(void) {
-    if (!tree_monitor_started) {
-        tree_monitor_started = true;
-        xTaskCreate(monitor_tree_task, "monitor_tree_task", 1024, NULL, 5, NULL);
-
-    }
-}
-*/
