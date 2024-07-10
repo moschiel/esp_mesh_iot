@@ -221,7 +221,7 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Websocket handshake");
-        // send_ws_frame_str(req, "{\"ota_msg\": \"Hello from ESP32\"}");
+        send_ws_ota_status(req, "WebSocket handshake from ESP", false);
     } else {
         //se nao chegar GET, é mensagem
         char payload[500] = {0};

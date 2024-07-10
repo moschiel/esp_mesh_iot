@@ -107,7 +107,7 @@
 			ws = new WebSocket('ws://' + window.location.host + '/ws_update');
 
 			ws.onopen = function() {
-				ota_status.textContent = 'Socket Handshake';
+				//ota_status.textContent = 'Socket Handshake';
 				ws.send(JSON.stringify({ fw_url: url }));
 			};
 			ws.onmessage = function(event) {
@@ -125,6 +125,7 @@
 			};
 			ws.onclose = function() {
 				console.log('WebSocket Closed');
+				ota_status.textContent = 'WebSocket Closed';
 			};
 		}
 		// função para enviar os dados do formulario

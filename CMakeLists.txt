@@ -9,7 +9,7 @@ project(app-template)
 add_custom_target(
     run_html_to_macro
     COMMAND ${CMAKE_COMMAND} -E echo "Running HTML to Macro String Converter"
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR} ${PYTHON} html_to_macro.py false "./main/html_macros.h" "./html/index.html" "INDEX_HTML" "./html/mesh-graph.html" "TREE_VIEW_HTML"
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR} ${PYTHON} html_to_macro.py true "./main/html_macros.h" "./html/index.html" "INDEX_HTML" "./html/mesh-graph.html" "TREE_VIEW_HTML"
     COMMENT "Executing HTML to Macro String Converter before building"
 )
 

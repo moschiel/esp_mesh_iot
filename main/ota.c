@@ -44,7 +44,7 @@ static void ota_task(void *arg) {
 
     esp_http_client_config_t http_config = {
         .url = ota_url,
-        //.event_handler = _http_event_handler,
+        .cert_pem = NULL,  // Desabilita a verificação do servidor (somente para testes)
         //.cert_pem = (char *)server_cert_pem_start, // Inclua o certificado do servidor se necessário
     };
 
@@ -85,7 +85,7 @@ void start_ota(char* url, httpd_req_t *req) {
 
         if(req != NULL) {
             memcpy(&ws_ota_req_ref, req, sizeof(httpd_req_t));
-            is_ws_req = true;
+            //is_ws_req = true;
         } else {
             is_ws_req = false;
         }
