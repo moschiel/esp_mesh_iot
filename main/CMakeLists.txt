@@ -9,5 +9,5 @@ idf_component_register(
     PRIV_REQUIRES       # optional, list the private requirements
 )
 
-# descomentar abaixo se for armazenar HTML da pasta 'data' na particao 'storage'
-#spiffs_create_partition_image(storage ../data FLASH_IN_PROJECT)
+# descomentar abaixo se for armazenar HTML da pasta 'html' na particao 'storage'
+#spiffs_create_partition_image(storage ../html FLASH_IN_PROJECT)
