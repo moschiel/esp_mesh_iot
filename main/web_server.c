@@ -19,6 +19,11 @@
 #include "messages.h"
 #include "html_macros.h"
 
+#if USE_HTML_FROM_EMBED_TXTFILES
+extern const uint8_t embed_index_html[] asm("_binary_min_index_html_start");
+extern const uint8_t embed_mesh_graph_html[] asm("_binary_min_mesh_graph_html_start");
+#endif
+
 // Define a macro MIN se não estiver definida
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -36,8 +41,12 @@ static void init_spiffs(void);
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
-#if USE_HTML_FROM_MACROS
-    httpd_resp_send_str_chunk(req, INDEX_HTML);
+#if USE_HTML_FROM_EMBED_TXTFILES
+    httpd_resp_send_str_chunk(req, (const char*)embed_index_html);
+    httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
+    return ESP_OK;
+#elif USE_HTML_FROM_MACROS
+    httpd_resp_send_str_chunk(req, (const char*)INDEX_HTML);
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
 #elif USE_HTML_FROM_SPIFFS
@@ -178,8 +187,12 @@ static esp_err_t mesh_list_data_handler(httpd_req_t *req)
 
 // Manipulador para a rota "/mesh_tree_view" para carregar a vizualizacao da arvore
 static esp_err_t mesh_tree_view_handler(httpd_req_t *req) {
-#if USE_HTML_FROM_MACROS
-    httpd_resp_send_str_chunk(req, TREE_VIEW_HTML);
+#if USE_HTML_FROM_EMBED_TXTFILES
+    httpd_resp_send_str_chunk(req, (const char*)embed_mesh_graph_html);
+    httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
+    return ESP_OK;
+#elif USE_HTML_FROM_MACROS
+    httpd_resp_send_str_chunk(req, (const char*)MESH_GRAPH_HTML);
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
 #elif USE_HTML_FROM_SPIFFS

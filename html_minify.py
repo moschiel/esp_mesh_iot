@@ -2,26 +2,55 @@ import os
 import sys
 import re
 
-version = "1.0"
+version = "2.0"
 
 def main(args):
     try:
-        if len(args) < 4 or len(args) % 2 == 1:
+        if len(args) < 2:
             print("Incorrect usage. Example usage:")
-            print("Program <minify (true/false)> <output_file_path> <html_file_path_1> <macro_name_1> <html_file_path_2> <macro_name_2> ...")
+            print("Program <mode> <file_paths>")
+            print("Modes: minify, minify-to-macro")
             return
 
-        # Check if HTML should be minified
-        should_minify = args[0].lower() == 'true'
+        mode = args[0].lower()
 
-        # Output header file path
-        output_file_path = args[1]
+        if mode == "minify":
+            if len(args) < 2:
+                print("Incorrect usage for minify mode. Example usage:")
+                print("Program minify <html_file_path_1> <html_file_path_2> ...")
+                return
+            minify_files(args[1:])
+        elif mode == "minify-to-macro":
+            if len(args) < 3:
+                print("Incorrect usage for minify-to-macro mode. Example usage:")
+                print("Program minify-to-macro <macros_file_path> <html_file_path_1> <html_file_path_2> ...")
+                return
+            minify_to_macro(args[1], args[2:])
+        else:
+            print("Unknown mode. Please use 'minify' or 'minify-to-macro'.")
+    except Exception as ex:
+        print("Error processing HTML files:", str(ex))
 
-        if not os.path.exists(output_file_path):
-            print(f"Error: The output file '{output_file_path}' does not exist.")
+def minify_files(file_paths):
+    for html_file_path in file_paths:
+        try:
+            with open(html_file_path, 'r') as file:
+                html_content = file.read()
+            minified_content = minify_html(html_content)
+            minified_file_path = os.path.join(os.path.dirname(html_file_path), f"min_{os.path.basename(html_file_path)}")
+            with open(minified_file_path, 'w') as file:
+                file.write(minified_content)
+            print(f"Minified file generated at: {minified_file_path}")
+        except Exception as ex:
+            print(f"Error minifying file {html_file_path}: {str(ex)}")
+
+def minify_to_macro(macros_file_path, html_file_paths):
+    try:
+        if not os.path.exists(macros_file_path):
+            print(f"Error: The macro file '{macros_file_path}' does not exist.")
             return
 
-        with open(output_file_path, 'r') as file:
+        with open(macros_file_path, 'r') as file:
             original_content = file.read()
 
         start_marker = "/* START HTML MACROS AREA */"
@@ -31,43 +60,42 @@ def main(args):
         end_marker_index = original_content.find(end_marker)
 
         if start_marker_index == -1 or end_marker_index == -1 or start_marker_index >= end_marker_index:
-            print(f"Error: Start and/or end marker not found in the output file, exptected markers {start_marker} and {end_marker}\n")
+            print(f"Error: Start and/or end marker not found in the macros file, expected markers {start_marker} and {end_marker}\n")
             return
 
         new_content = []
         new_content.append(original_content[:start_marker_index + len(start_marker)] + "\n")
         new_content.append("\n")
         new_content.append("/*\n")
-        new_content.append(f" * Automatically generated code by 'HTML-to-Macro-String-Converter v{version}'\n")
+        new_content.append(f" * Automatically generated macros by 'HTML-Minify-and-Macro-Converter v{version}'\n")
         new_content.append(" * containing the HTML code converted to macros.\n")
         new_content.append(" * The parameters are:\n")
-        new_content.append(f" *    Minify: {args[0]}\n")
-        new_content.append(f" *    Output: {args[1]}\n")
+        new_content.append(f" *    Output: {macros_file_path}\n")
 
-        for i in range(2, len(args), 2):
-            new_content.append(f" *    Input[{(i // 2)}]: {args[i]}, Macro: {args[i + 1]}\n")
+        for i, html_file_path in enumerate(html_file_paths):
+            macro_name = os.path.splitext(os.path.basename(html_file_path))[0].upper() + "_HTML"
+            new_content.append(f" *    Input[{i + 1}]: {html_file_path}, Macro: {macro_name}\n")
 
         new_content.append(" *\n")
-        new_content.append(" * Project Repository: https://github.com/moschiel/html-to-macro-string\n")
+        new_content.append(" * Project Repository: https://github.com/moschiel/html-minify-and-macro-converter\n")
         new_content.append(" */\n\n")
 
-        # Process each pair of HTML file path and macro name
-        for i in range(2, len(args), 2):
-            html_file_path = args[i]
-            macro_name = args[i + 1]
+        # Process each HTML file path
+        for html_file_path in html_file_paths:
+            macro_name = os.path.splitext(os.path.basename(html_file_path))[0].upper() + "_HTML"
 
             with open(html_file_path, 'r') as file:
                 html_content = file.read()
 
-            html_macro = convert_to_c_macro(html_content, macro_name, should_minify)
+            html_macro = convert_to_c_macro(html_content, macro_name, should_minify=True)
             new_content.append(html_macro + "\n\n")
 
         new_content.append(original_content[end_marker_index:])
 
-        with open(output_file_path, 'w') as file:
+        with open(macros_file_path, 'w') as file:
             file.write(''.join(new_content))
 
-        print("HTML macros successfully generated at:", output_file_path)
+        print("HTML macros successfully generated at:", macros_file_path)
     except Exception as ex:
         print("Error processing HTML files:", str(ex))
 

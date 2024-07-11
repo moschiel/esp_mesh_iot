@@ -1,0 +1,1 @@
+python html_minify.py minify html/index.html html/mesh_graph.html
