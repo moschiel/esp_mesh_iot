@@ -11,6 +11,7 @@
 #include "esp_spiffs.h"
 
 #include "web_server.h"
+#include "web_socket.h"
 #include "app_config.h"
 #include "utils.h"
 #include "mesh_network.h"
@@ -20,8 +21,13 @@
 #include "html_macros.h"
 
 #if USE_HTML_FROM_EMBED_TXTFILES
+#if USE_MIN_HTML
 extern const uint8_t embed_index_html[] asm("_binary_min_index_html_start");
 extern const uint8_t embed_mesh_graph_html[] asm("_binary_min_mesh_graph_html_start");
+#elif USE_FULL_HTML
+extern const uint8_t embed_index_html[] asm("_binary_index_html_start");
+extern const uint8_t embed_mesh_graph_html[] asm("_binary_mesh_graph_html_start");
+#endif
 #endif
 
 // Define a macro MIN se não estiver definida
@@ -30,7 +36,7 @@ extern const uint8_t embed_mesh_graph_html[] asm("_binary_min_mesh_graph_html_st
 #endif  
 
 static const char *TAG = "WEB_SERVER";
-static httpd_handle_t webserver_handle = NULL;
+httpd_handle_t webserver_handle = NULL;
 
 extern uint8_t STA_MAC_address[6];
 
@@ -232,21 +238,32 @@ static esp_err_t mesh_tree_data_handler(httpd_req_t *req)
 // Manipulador para rota "ws_update" para OTA
 static esp_err_t ws_update_fw_handler(httpd_req_t *req)
 {
+    char payload[500];
+    
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Websocket handshake");
-        send_ws_ota_status(req, "WebSocket handshake from ESP", false);
+        if(mount_msg_ota_status(payload, sizeof(payload), "WebSocket handshake from ESP", false)) {
+            reply_req_ws_frame_str(req, payload);
+        }
     } else {
-        //se nao chegar GET, é mensagem
-        char payload[500] = {0};
-        if(receive_ws_frame_str(req, payload, sizeof(payload)) == ESP_OK) {
-            ESP_LOGI(TAG, "Rcv Socket Method: %i, Data: %s", req->method, payload);
-
+        httpd_ws_frame_t ws_pkt;
+        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+        ws_pkt.payload = (uint8_t *)payload;
+        esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, sizeof(payload));
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
+            return ret;
+        }
+        
+        if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
+            payload[ws_pkt.len] = '\0';
+            ESP_LOGI(TAG, "Received packet with message: %s", ws_pkt.payload);
             char fw_url[100];
-            if(rx_msg_fw_update_request(payload, fw_url)) {
+            if(parse_msg_fw_update_request(payload, fw_url)) {
                 nvs_set_ota_fw_url(fw_url);
-                start_ota(fw_url, req);
+                start_ota(fw_url);
             } else {
-                send_ws_ota_status(req, "Fail to parse JSON", true);
+                send_ws_ota_status("Fail to parse JSON", true);
             }
         }
     }
@@ -405,7 +422,6 @@ static void wifi_init_softap(void) {
     esp_wifi_start();
 }
 
-
 #if USE_HTML_FROM_SPIFFS
 // Função para inicializar o SPIFFS, onde fica armazenado os arquivos HTML
 static void init_spiffs(void)
@@ -439,3 +455,4 @@ static void init_spiffs(void)
     }
 }
 #endif
+

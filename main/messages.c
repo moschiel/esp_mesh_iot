@@ -10,7 +10,7 @@
 static const char* TAG = "MESSAGES";
 
 
-void tx_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer) {
+void mount_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer) {
     // Buffer para armazenar as strings dos endereços MAC
     char node_addr_str[18];
     char parent_addr_str[18];
@@ -35,7 +35,7 @@ void tx_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], ui
     cJSON_Delete(root);
 }
 
-bool rx_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int *layer) {
+bool parse_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int *layer) {
     if (root == NULL) {
         return false;
     }
@@ -60,7 +60,7 @@ bool rx_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent
     return false;  // Retorna false se houver algum erro nos campos do JSON
 }
 
-bool rx_msg_fw_update_request(char* payload, char* fw_url) {
+bool parse_msg_fw_update_request(char* payload, char* fw_url) {
     cJSON *root = cJSON_Parse(payload);
     if (root == NULL) {
         ESP_LOGE(TAG, "Fail to parse JSON");
@@ -82,4 +82,19 @@ bool rx_msg_fw_update_request(char* payload, char* fw_url) {
     return ret;
 }
 
+bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done) {
+    int ret = snprintf(buf, buf_size, "{"
+            "\"id\": \"ota_status\","
+            "\"msg\": \"%s\","
+            "\"done\": %s"
+        "}", 
+        msg, 
+        done? "true" : "false"
+    );
 
+    if(ret >= buf_size) {
+        ESP_LOGE(TAG, "Fail to mount ota_status msg");
+        return false;
+    }
+    return true;
+}

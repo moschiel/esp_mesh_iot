@@ -74,7 +74,7 @@ void mesh_p2p_tx_task(void *arg)
             {
                 if((iteration_count % 10) == 0) { // reporta cada 10 segundos
                     mesh_data.proto = MESH_PROTO_JSON;
-                    tx_msg_node_connected((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer);
+                    mount_msg_node_connected((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer);
                     mesh_data.size = strlen((char*)tx_buf) + 1;
 
                     err = esp_mesh_send(
@@ -139,7 +139,7 @@ void mesh_p2p_rx_task(void *arg)
                         uint8_t node_sta_addr[6];
                         uint8_t parent_sta_addr[6];
                         int layer;
-                        if(rx_msg_node_connected(root, node_sta_addr, parent_sta_addr, &layer)) {
+                        if(parse_msg_node_connected(root, node_sta_addr, parent_sta_addr, &layer)) {
                             update_tree_with_node(node_sta_addr, parent_sta_addr, layer);
                         } else {
                             parse_fail = true;

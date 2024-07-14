@@ -8,6 +8,7 @@
 		html {
 			height: 100%;
 		}
+
 		body {
 			font-family: Arial, sans-serif;
 			margin: auto;
@@ -15,6 +16,7 @@
 			background-color: #f4f4f4;
 			height: 100%;
 		}
+
 		h1 {
 			color: #333;
 			text-align: center;
@@ -102,6 +104,7 @@
 		}
 	</style>
 </head>
+
 <body>
 	<div class="container">
 		<p>v1.2</p>
@@ -117,8 +120,11 @@
 	</div>
 	<script src="https://d3js.org/d3.v6.min.js"></script>
 	<script>
+
 		const svg = d3.select("svg");
+
 		const width = +svg.attr("viewBox").split(" ")[2];
+
 		const height = +svg.attr("viewBox").split(" ")[3];
 		const zoomable = svg.select(".zoomable");
 		const zoom = d3.zoom()

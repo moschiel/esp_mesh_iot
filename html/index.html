@@ -48,7 +48,6 @@
 	</style>
 	<script>
 		let ws;
-
 		function formatMeshID(e) { 
 			var r = e.target.value.replace(/[^a-fA-F0-9]/g, ''); 
 			e.target.value = r.match(/.{1,2}/g).join('-'); 
@@ -112,11 +111,13 @@
 			};
 			ws.onmessage = function(event) {
 				const data = JSON.parse(event.data);
-				if (data.msg) {
-					ota_status.textContent = data.msg;
-				}
-				if (data.done) {
-					ws.close();
+				if(data.id && data.id == 'ota_status') {
+					if (data.msg) {
+						ota_status.textContent = data.msg;
+					}
+					if (data.done) {
+						ws.close();
+					}
 				}
 			};
 			ws.onerror = function(error) {
@@ -125,7 +126,6 @@
 			};
 			ws.onclose = function() {
 				console.log('WebSocket Closed');
-				ota_status.textContent = 'WebSocket Closed';
 			};
 		}
 		// função para enviar os dados do formulario
@@ -164,7 +164,7 @@
 </head>
 <body>
 	<br />
-	<p>v1.6</p>
+	<p>v1.7</p>
 	<div class="container">
 		<h2>Device Info</h2>
 		<p >Root MAC address: <span id="device_mac_addr">08:d1:f9:dd:80:9c</span></p>
@@ -196,7 +196,7 @@
 		<label for="firmware_url">Firmware URL:</label><br />
 		<input type="text" id="firmware_url" name="firmware_url" required /><br />
 		<button onclick="sendFirmwareURL()">Update Firmware</button>
-		<p id="ota_status">Update Status: Not Started</p>
+		<p>Update Status: <span id="ota_status">Not Started</span></p>
 	</div>
 	<br />
 	<div class="container">

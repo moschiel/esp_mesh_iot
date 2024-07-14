@@ -2,41 +2,43 @@ import os
 import sys
 import re
 
-version = "2.0"
+version = "2.1"
 
 def main(args):
     try:
         if len(args) < 2:
             print("Incorrect usage. Example usage:")
-            print("Program <mode> <file_paths>")
+            print("Program <mode> [keep-line-break] <file_paths>")
             print("Modes: minify, minify-to-macro")
             return
 
         mode = args[0].lower()
+        keep_line_break = 'keep-line-break' in args
+        file_args_start_index = 2 if keep_line_break else 1
 
         if mode == "minify":
-            if len(args) < 2:
+            if len(args) < file_args_start_index + 1:
                 print("Incorrect usage for minify mode. Example usage:")
-                print("Program minify <html_file_path_1> <html_file_path_2> ...")
+                print("Program minify [keep-line-break] <html_file_path_1> <html_file_path_2> ...")
                 return
-            minify_files(args[1:])
+            minify_files(args[file_args_start_index:], keep_line_break)
         elif mode == "minify-to-macro":
-            if len(args) < 3:
+            if len(args) < file_args_start_index + 2:
                 print("Incorrect usage for minify-to-macro mode. Example usage:")
-                print("Program minify-to-macro <macros_file_path> <html_file_path_1> <html_file_path_2> ...")
+                print("Program minify-to-macro [keep-line-break] <macros_file_path> <html_file_path_1> <html_file_path_2> ...")
                 return
-            minify_to_macro(args[1], args[2:])
+            minify_to_macro(args[file_args_start_index], args[file_args_start_index + 1:], keep_line_break)
         else:
             print("Unknown mode. Please use 'minify' or 'minify-to-macro'.")
     except Exception as ex:
         print("Error processing HTML files:", str(ex))
 
-def minify_files(file_paths):
+def minify_files(file_paths, keep_line_break):
     for html_file_path in file_paths:
         try:
             with open(html_file_path, 'r') as file:
                 html_content = file.read()
-            minified_content = minify_html(html_content)
+            minified_content = minify_html(html_content, keep_line_break)
             minified_file_path = os.path.join(os.path.dirname(html_file_path), f"min_{os.path.basename(html_file_path)}")
             with open(minified_file_path, 'w') as file:
                 file.write(minified_content)
@@ -44,7 +46,7 @@ def minify_files(file_paths):
         except Exception as ex:
             print(f"Error minifying file {html_file_path}: {str(ex)}")
 
-def minify_to_macro(macros_file_path, html_file_paths):
+def minify_to_macro(macros_file_path, html_file_paths, keep_line_break):
     try:
         if not os.path.exists(macros_file_path):
             print(f"Error: The macro file '{macros_file_path}' does not exist.")
@@ -87,7 +89,7 @@ def minify_to_macro(macros_file_path, html_file_paths):
             with open(html_file_path, 'r') as file:
                 html_content = file.read()
 
-            html_macro = convert_to_c_macro(html_content, macro_name, should_minify=True)
+            html_macro = convert_to_c_macro(html_content, macro_name, keep_line_break)
             new_content.append(html_macro + "\n\n")
 
         new_content.append(original_content[end_marker_index:])
@@ -99,21 +101,18 @@ def minify_to_macro(macros_file_path, html_file_paths):
     except Exception as ex:
         print("Error processing HTML files:", str(ex))
 
-def convert_to_c_macro(html_content, macro_name, should_minify):
-    if should_minify:
-        html_content = minify_html(html_content)
-        html_content = html_content.replace('"', '\\"')
-        html_content = f"\"{html_content}\""
-        return f"#define {macro_name} {html_content}"
+def convert_to_c_macro(html_content, macro_name, keep_line_break):
+    html_content = minify_html(html_content, keep_line_break)
+    html_content = html_content.replace('"', '\\"')
+    if keep_line_break:
+        lines = html_content.split('\n')
+        html_content = " \\\n".join([f"\"{line}\"" for line in lines])
     else:
-        macro_lines = [f"#define {macro_name} \\"]
-        lines = html_content.splitlines()
-        for line in lines:
-            macro_lines.append("\"{}\\n\"\\".format(line.replace('"', '\\"')))
-        macro_lines.append("\"\"")  # Add closing quote
-        return '\n'.join(macro_lines)
+        html_content = f"\"{html_content}\""
+    return f"#define {macro_name} {html_content}"
 
-def minify_html(html_content):
+
+def minify_html(html_content, keep_line_break):
     # Preserve strings before processing to avoid misinterpreting '//' within strings as comments
     def preserve_strings(content):
         string_pattern = re.compile(r'(["\'])(?:\\.|[^\1])*?\1')
@@ -138,22 +137,35 @@ def minify_html(html_content):
     for match in matches:
         script_tag, script_content, script_end_tag = match
         script_content, string_replacements = preserve_strings(script_content)
-        minified_script_content = minify_script(script_content)
+        minified_script_content = minify_script(script_content, keep_line_break)
         minified_script_content = restore_strings(minified_script_content, string_replacements)
         minified_script_tag = script_tag + minified_script_content + script_end_tag
         html_content = html_content.replace(''.join(match), minified_script_tag)
 
     # Minify HTML outside <script> sections
     html_content, string_replacements = preserve_strings(html_content)
-    html_content = re.sub(r'\s*(<[^>]+>)\s*', r'\1', html_content)  # Remove whitespace between tags
+    html_content = re.sub(r'[ \t]*(<[^>]+>)[ \t]*', r'\1', html_content)  # Remove whitespace between tags, but keep line breaks
     html_content = re.sub(r'<!--.*?-->', '', html_content, flags=re.DOTALL)  # Remove comments
-    html_content = re.sub(r'\s{2,}', ' ', html_content)  # Remove unnecessary whitespace
-    html_content = re.sub(r'[\r\n]+', '', html_content)  # Remove line breaks
+    if keep_line_break:
+        html_content = re.sub(r'[ \t]{2,}', ' ', html_content)  # Remove unnecessary spaces but keep line breaks
+        # Normalize line endings to \n
+        html_content = re.sub(r'\r\n', '\n', html_content)  # Convert CRLF to LF
+        html_content = re.sub(r'\r', '\n', html_content)    # Convert CR to LF
+    else:
+        html_content = re.sub(r'\s{2,}', ' ', html_content)  # Remove unnecessary whitespace
+        html_content = re.sub(r'[\r\n]+', '', html_content)  # Remove line breaks
+    
+    # Remove all blank lines
+    html_content = re.sub(r'^[ \t]*\n', '', html_content, flags=re.MULTILINE)  
+
+    # Merge consecutive closing braces on separate lines into a single line
+    html_content = re.sub(r'}\s*\n\s*}', r'}}', html_content)  
+    
     html_content = restore_strings(html_content, string_replacements)
 
     return html_content.strip()
 
-def minify_script(script_content):
+def minify_script(script_content, keep_line_break):
     # Remove multi-line comments
     script_content = re.sub(r'/\*[\s\S]*?\*/', '', script_content)
 
@@ -171,11 +183,12 @@ def minify_script(script_content):
     # Remove single-line comments
     script_content = re.sub(r'//.*', '', script_content)
 
-    # Remove unnecessary whitespace
-    script_content = re.sub(r'\s+', ' ', script_content)
-
-    # Remove whitespace around operators
-    script_content = re.sub(r'\s*([{};:,])\s*', r'\1', script_content)
+    if keep_line_break:
+        script_content = re.sub(r'[ \t]+', ' ', script_content)  # Remove unnecessary spaces but keep line breaks
+        script_content = re.sub(r'[ \t]*([{};:,])[ \t]*', r'\1', script_content)  # Remove spaces around operators but keep line breaks
+    else:
+        script_content = re.sub(r'\s+', ' ', script_content) # Remove unnecessary whitespace
+        script_content = re.sub(r'\s*([{};:,])\s*', r'\1', script_content) # Remove whitespace around operators
 
     # Restore strings
     for placeholder, original_string in string_replacements.items():

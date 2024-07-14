@@ -6,6 +6,13 @@
 #define USE_HTML_FROM_MACROS            0 
 #define USE_HTML_FROM_SPIFFS            0 //SPIFFS teria que fazer mais um OTA para a particao SPIFFS.
 
+// @minify_config
+#if USE_HTML_FROM_EMBED_TXTFILES
+#define USE_MIN_HTML 1
+#define USE_FULL_HTML (!USE_MIN_HTML)
+#endif
+
+
 void start_webserver(bool init_wifi_ap);
 void stop_webserver(void);
 bool is_webserver_active(void);
