@@ -242,7 +242,7 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
     
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Websocket handshake");
-        if(mount_msg_ota_status(payload, sizeof(payload), "WebSocket handshake from ESP", false)) {
+        if(mount_msg_ota_status(payload, sizeof(payload), "WebSocket handshake from ESP", false, false, 0)) {
             reply_req_ws_frame_str(req, payload);
         }
     } else {
@@ -263,7 +263,7 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
                 nvs_set_ota_fw_url(fw_url);
                 start_ota(fw_url);
             } else {
-                send_ws_ota_status("Fail to parse JSON", true);
+                send_ws_ota_status("Fail to parse JSON", true, true, 0);
             }
         }
     }

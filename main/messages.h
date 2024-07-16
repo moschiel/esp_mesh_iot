@@ -11,6 +11,6 @@ typedef enum {
 void mount_msg_node_connected(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer);
 bool parse_msg_node_connected(cJSON *root, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int *layer);
 bool parse_msg_fw_update_request(char* payload, char* fw_url);
-bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done);
+bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool isError, uint8_t percent);
 
 #endif /* MAIN_MESSAGES_H_ */

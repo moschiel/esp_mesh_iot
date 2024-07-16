@@ -43,8 +43,26 @@
 		button:hover, input[type='submit']:hover {
 			background-color: #45a049;
 		}
+		#progress-container {
+            width: 100%;
+            background-color: #f3f3f3;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        #progress-bar {
+            width: 0;
+            height: 30px;
+            background-color: #2270e6;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 30px;
+            color: white;
+        }
 		table { border-collapse: collapse; width: 100%; }
 		table, th, td { border:1px solid black; }
+
 	</style>
 	<script>
 		let ws;
@@ -96,13 +114,25 @@
 				});
 			}
 		}
+		function updateProgress(percentage) {
+            const progressBar = document.getElementById('progress-bar');
+
+            if (percentage < 0) {
+                percentage = 0;
+            } else if (percentage > 100) {
+                percentage = 100;
+            }
+
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
+        }
 		// Função para enviar a URL do firmware e acompanhar a atualização
 		function sendFirmwareURL() {
 			if(ws != null && ws.readyState === WebSocket.OPEN) 
 				return;
 
 			const url = document.getElementById('firmware_url').value;
-			const ota_status = document.getElementById('ota_status');
+			const el_ota_status = document.getElementById('ota_status');
 			ws = new WebSocket('ws://' + window.location.host + '/ws_update');
 
 			ws.onopen = function() {
@@ -113,8 +143,14 @@
 				const data = JSON.parse(event.data);
 				if(data.id && data.id == 'ota_status') {
 					if (data.msg) {
-						ota_status.textContent = data.msg;
+						el_ota_status.textContent = data.msg;
+						if(data.percent) {
+							updateProgress(data.percent);
+						}
+
+						el_ota_status.style.color = data.isError ? 'red' : 'black';
 					}
+
 					if (data.done) {
 						ws.close();
 					}
@@ -122,7 +158,7 @@
 			};
 			ws.onerror = function(error) {
 				console.error('WebSocket Error: ', error);
-				ota_status.textContent = 'Update Failed!';
+				el_ota_status.textContent = 'Update Failed!';
 			};
 			ws.onclose = function() {
 				console.log('WebSocket Closed');
@@ -164,7 +200,7 @@
 </head>
 <body>
 	<br />
-	<p>v1.7</p>
+	<p>v1.8</p>
 	<div class="container">
 		<h2>Device Info</h2>
 		<p >Root MAC address: <span id="device_mac_addr">08:d1:f9:dd:80:9c</span></p>
@@ -196,7 +232,10 @@
 		<label for="firmware_url">Firmware URL:</label><br />
 		<input type="text" id="firmware_url" name="firmware_url" required /><br />
 		<button onclick="sendFirmwareURL()">Update Firmware</button>
-		<p>Update Status: <span id="ota_status">Not Started</span></p>
+		<p>Status: <span id="ota_status">Not Started</span></p>
+		<div id="progress-container">
+			<div id="progress-bar">0%</div>
+		</div>
 	</div>
 	<br />
 	<div class="container">

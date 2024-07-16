@@ -75,7 +75,7 @@ void format_mac(char *str, const uint8_t *mac) {
 void httpd_resp_send_str_chunk(httpd_req_t *req, const char *response) {
     const size_t total_size = strlen(response);
     const int chunk_size = 1000;
-    char *pData = response;
+    char *pData = (char*)response;
     size_t offset = 0;
     size_t size_to_send = 0;
 

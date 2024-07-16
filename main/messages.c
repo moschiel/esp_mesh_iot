@@ -82,14 +82,18 @@ bool parse_msg_fw_update_request(char* payload, char* fw_url) {
     return ret;
 }
 
-bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done) {
+bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool isError, uint8_t percent) {
     int ret = snprintf(buf, buf_size, "{"
             "\"id\": \"ota_status\","
             "\"msg\": \"%s\","
-            "\"done\": %s"
+            "\"isError\": %s,"
+            "\"done\": %s,"
+            "\"percent\": %u"
         "}", 
         msg, 
-        done? "true" : "false"
+        isError? "true" : "false",
+        done? "true" : "false",
+        percent
     );
 
     if(ret >= buf_size) {
