@@ -1,8 +1,6 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <string.h>
-
-#include "esp_log.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
@@ -258,11 +256,7 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
         if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
             payload[ws_pkt.len] = '\0';
             ESP_LOGI(TAG, "Received packet with message: %s", ws_pkt.payload);
-            char fw_url[100];
-            if(parse_msg_fw_update_request(payload, fw_url)) {
-                nvs_set_ota_fw_url(fw_url);
-                start_ota(fw_url);
-            } else {
+            if(!process_msg_fw_update_request(payload)) {
                 send_ws_ota_status("Fail to parse JSON", true, true, 0);
             }
         }
@@ -386,9 +380,6 @@ bool is_webserver_active(void) {
 // Inicialização do Wi-Fi em modo ponto de acesso (AP)
 static void wifi_init_softap(void) {
     ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
-
-    // Inicializa o armazenamento não volátil (NVS)
-    nvs_flash_init();
 
     // Inicializa a pilha de rede
     esp_netif_init();

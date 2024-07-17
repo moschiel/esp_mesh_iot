@@ -10,6 +10,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
+#include "esp_http_server.h"
 #include "esp_https_ota.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -21,7 +22,9 @@
 #include "web_socket.h"
 #include "messages.h"
 
-#define SKIP_VERSION_CHECK 0
+#define VERSION_CHECK 0
+#define DATE_TIME_CHECK 0 //por alguma razao, a data de compilacao apenas muda se der 'clean' antes do 'build', nao vale a pena pois demora demais o build
+#define FW_PKGS_DELAY 50 //ms
 
 // Certificado do servidor, se necessário
 extern const uint8_t server_cert_pem_start[] asm("_binary_server_cert_pem_start");
@@ -29,6 +32,7 @@ extern const uint8_t server_cert_pem_start[] asm("_binary_server_cert_pem_start"
 static const char *TAG = "OTA_MESH";
 static bool ota_running = false;
 static char ota_url[128];
+static const mesh_addr_t mesh_broadcast_addr = {.addr = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
 
 typedef struct {
     esp_app_desc_t appDesc;
@@ -40,6 +44,75 @@ void send_ws_ota_status(char* msg, bool done, bool isError, uint8_t percent) {
     char payload[1000];
     if(mount_msg_ota_status(payload, sizeof(payload), msg, done, isError, percent)) {
         add_ws_msg_to_tx_queue(payload);
+    }
+}
+
+//TODO: tem um bug, que se o socket fechar do lado do cliente durante a transmissao,
+// o log da esp morre, e apenas volta depois de concluir a transferencia do firmware
+void distribute_firmware_to_children(ota_fw_info_t *ota_fw_info) {
+    send_ws_ota_status("Updating CHILD nodes", false, false, 0);
+    
+    if (ota_fw_info->update_partition == NULL) {
+        ESP_LOGE(TAG, "partition not found");
+        return;
+    }
+
+    firmware_packet_t packet;
+    packet.id = BIN_MSG_FW_PACKET; // Identificador para pacotes de firmware
+    strcpy(packet.version, ota_fw_info->appDesc.version);
+    packet.offset = 0;
+    packet.total_size = ota_fw_info->size;
+    
+    esp_err_t err = ESP_OK;
+
+    while (packet.offset < packet.total_size) {
+        packet.data_size = (packet.offset + sizeof(packet.data) > packet.total_size) ? (packet.total_size - packet.offset) : sizeof(packet.data);
+        err = esp_partition_read(ota_fw_info->update_partition, packet.offset, packet.data, packet.data_size);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Error reading OTA partition: %s", esp_err_to_name(err));
+            break;
+        }
+
+        // Enviar pacote para os nós filhos
+        mesh_data_t data;
+        data.data = (uint8_t *)&packet;
+        data.size = sizeof(firmware_packet_t);
+        data.proto = MESH_PROTO_BIN;
+        data.tos = MESH_TOS_P2P;
+        
+        uint8_t retry = 0;
+fw_packet_retry:
+        err = esp_mesh_send(&mesh_broadcast_addr, &data, MESH_DATA_P2P, NULL, 0);
+        if(err == ESP_ERR_MESH_QUEUE_FULL && retry++ < 5){
+            ESP_LOGW(TAG, "mesh queue full, retry firmware transfer");
+            vTaskDelay(pdMS_TO_TICKS(500));
+            goto fw_packet_retry;
+        }
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to send firmware to children: %s", esp_err_to_name(err));
+            break;
+        }
+
+        packet.offset += packet.data_size;
+
+        // Calcula e registra o progresso
+        static uint8_t lastPercent = 0;
+        uint8_t percent = (uint8_t)(((float)packet.offset  / (float)packet.total_size)*100.0);
+        if(percent - lastPercent >= 1) { //atualiza a cada 1%
+            lastPercent = percent;
+            ESP_LOGD(TAG, "Updating CHILD nodes: %u bytes ( %u%% )", (unsigned int)packet.offset, percent);
+            send_ws_ota_status("Updating CHILD nodes", false, false, percent);
+        }
+        
+
+        vTaskDelay(pdMS_TO_TICKS(FW_PKGS_DELAY));
+    }
+
+    if(err == ESP_OK) {
+        ESP_LOGI(TAG, "Firmware distribution complete");
+        send_ws_ota_status("Update complete", true, false, 100);
+    } else {
+        send_ws_ota_status("Update CHILD nodes FAILED...", true, true, 100);
     }
 }
 
@@ -55,10 +128,13 @@ static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
         ESP_LOGI(TAG, "Running firmware version: %s", running_app_info.version);
     }
 
-#if SKIP_VERSION_CHECK
-    if (memcmp(new_app_info->version, running_app_info.version, sizeof(new_app_info->version)) == 0 &&
-        memcmp(new_app_info->date, running_app_info.date, sizeof(new_app_info->date)) == 0 &&
-        memcmp(new_app_info->time, running_app_info.time, sizeof(new_app_info->time)) == 0) {
+#if VERSION_CHECK
+    if (memcmp(new_app_info->version, running_app_info.version, sizeof(new_app_info->version)) == 0
+#if DATE_TIME_CHECK
+        // && memcmp(new_app_info->date, running_app_info.date, sizeof(new_app_info->date)) == 0
+        // && memcmp(new_app_info->time, running_app_info.time, sizeof(new_app_info->time)) == 0
+#endif
+        ) {
         ESP_LOGW(TAG, "Current running version is the same as a new. Aborting update.");
         return ESP_FAIL;
     }
@@ -83,17 +159,22 @@ static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
 //baseado na funcao esp_https_ota
 static esp_err_t esp_https_ota_custom(const esp_https_ota_config_t *ota_config, ota_fw_info_t * ota_fw_info)
 {
+    esp_err_t err = ESP_OK;
+    send_ws_ota_status("Updating ROOT node", false, false, 0);
+
     if (ota_config == NULL || ota_config->http_config == NULL) {
         ESP_LOGE(TAG, "esp_https_ota: Invalid argument");
-        return ESP_ERR_INVALID_ARG;
+        err = ESP_ERR_INVALID_ARG;
+        goto ota_end;
     }
 
     esp_https_ota_handle_t https_ota_handle = NULL;
-    esp_err_t err = esp_https_ota_begin(ota_config, &https_ota_handle);
+    err = esp_https_ota_begin(ota_config, &https_ota_handle);
     if (https_ota_handle == NULL) {
-        return ESP_FAIL;
+        err = ESP_FAIL;
+        goto ota_end;
     } 
-
+    
     err = esp_https_ota_get_img_desc(https_ota_handle, &ota_fw_info->appDesc);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed");
@@ -107,8 +188,9 @@ static esp_err_t esp_https_ota_custom(const esp_https_ota_config_t *ota_config, 
     }
 
     ota_fw_info->size = esp_https_ota_get_image_size(https_ota_handle);
+    ota_fw_info->update_partition = (esp_partition_t *)esp_ota_get_next_update_partition(NULL);
     
-    ESP_LOGI(TAG, "Updating root node, Version: %s, Date: %s %s, Size: %u", 
+    ESP_LOGI(TAG, "Updating ROOT node, Version: %s, Date: %s %s, Size: %u", 
         ota_fw_info->appDesc.version, ota_fw_info->appDesc.date, ota_fw_info->appDesc.time, ota_fw_info->size);
 
     while (1) {
@@ -120,24 +202,29 @@ static esp_err_t esp_https_ota_custom(const esp_https_ota_config_t *ota_config, 
         int len_read = esp_https_ota_get_image_len_read(https_ota_handle);
         static uint8_t lastPercent = 0;
         uint8_t percent = (uint8_t)(((float)len_read / (float)ota_fw_info->size)*100.0);
-        if(percent != lastPercent) {
+        if(percent - lastPercent >= 1) {
             lastPercent = percent;
-            ESP_LOGD(TAG, "Updating root node: %d bytes ( %u%% )", len_read, percent);
-            send_ws_ota_status("Updating root node", false, false, percent);
+            ESP_LOGD(TAG, "Updating ROOT node: %d bytes ( %u%% )", len_read, percent);
+            send_ws_ota_status("Updating ROOT node", false, false, percent);
         }
     }
 
 ota_end:
     if (err != ESP_OK) {
         esp_https_ota_abort(https_ota_handle);
-        return err;
+    } else {
+        err = esp_https_ota_finish(https_ota_handle);
     }
 
-    esp_err_t ota_finish_err = esp_https_ota_finish(https_ota_handle);
-    if (ota_finish_err != ESP_OK) {
-        return ota_finish_err;
+    if(err != ESP_OK) {
+        ESP_LOGI(TAG, "Updating ROOT node Failed...");
+        send_ws_ota_status("Updating ROOT node Failed...", true, true, 0);
+    } else {
+        ESP_LOGI(TAG, "ROOT node updated");
+        send_ws_ota_status("ROOT node updated", false, false, 100);
     }
-    return ESP_OK;
+
+    return err;
 }
 
 static void ota_task(void *arg) {
@@ -145,7 +232,7 @@ static void ota_task(void *arg) {
 
     esp_http_client_config_t http_config = {
         .url = ota_url,
-        .cert_pem = NULL  // Desabilita a verificação do servidor (somente para testes)
+        .cert_pem = NULL
         //.cert_pem = (char *)server_cert_pem_start, // Inclua o certificado do servidor se necessário
     };
 
@@ -155,29 +242,17 @@ static void ota_task(void *arg) {
 
     ota_fw_info_t ota_fw_info;
 
-    send_ws_ota_status("Updating root node", false, false, 0);
-
     if (esp_https_ota_custom(&ota_config, &ota_fw_info) == ESP_OK) 
     {
-        ESP_LOGI(TAG, "Root node updated, restarting...");
-        send_ws_ota_status("Root node updated, restarting...", true, false, 0);
-        //da tempo suficiente de enviar a resposta via ws, e entao reseta
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        // distribute_firmware_to_children();
-
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        distribute_firmware_to_children(&ota_fw_info);
+        ESP_LOGI(TAG, "Restarting...");
+        vTaskDelay(pdMS_TO_TICKS(2000));
         esp_restart();
-    }
-    else 
-    {
-        ESP_LOGI(TAG, "OTA Failed...");
-        send_ws_ota_status("OTA Failed", true, true, 0);
     }
 
     ota_running = false;
-
     ESP_LOGW(TAG, "Deleted OTA Task");
-
     vTaskDelete(NULL);
 }
 
@@ -190,54 +265,3 @@ void start_ota(char* url) {
     }
 }
 
-typedef struct {
-    uint16_t id;        // Identificador de 2 bytes
-    uint32_t offset;    // Offset de 4 bytes
-    uint32_t data_size;
-    uint32_t total_size;
-    uint8_t data[1024];
-} firmware_packet_t;
-
-
-void distribute_firmware_to_children(ota_fw_info_t *ota_fw_info) {
-    if (ota_fw_info->update_partition == NULL) {
-        ESP_LOGE(TAG, "Running partition not found");
-        return;
-    }
-
-    firmware_packet_t packet;
-    packet.offset = 0;
-    packet.total_size = ota_fw_info->size; //ota_fw_info->update_partition->size;
-    esp_err_t err;
-
-    // Identificador para pacotes de firmware
-    packet.id = 0x0102;
-
-    while (packet.offset < packet.total_size) {
-        packet.data_size = (packet.offset + sizeof(packet.data) > packet.total_size) ? (packet.total_size - packet.offset) : sizeof(packet.data);
-        err = esp_partition_read(ota_fw_info->update_partition, packet.offset, packet.data, packet.data_size);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Error reading OTA partition: %s", esp_err_to_name(err));
-            return;
-        }
-
-        // Enviar pacote para os nós filhos
-        mesh_data_t data;
-        data.data = (uint8_t *)&packet;
-        data.size = sizeof(packet.id) + sizeof(packet.offset) + packet.data_size;
-        data.proto = MESH_PROTO_BIN;
-        data.tos = MESH_TOS_P2P;
-        
-        err = esp_mesh_send(NULL, &data, MESH_DATA_TODS, NULL, 0);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to send firmware bhildren: %s", esp_err_to_name(err));
-        }
-
-        packet.offset += packet.data_size;
-
-        // Calcula e registra o progresso
-        int progress = (int)(((float)packet.offset / packet.total_size) * 100);
-        ESP_LOGI(TAG, "Firmware distribution progress: %d%%", progress);
-    }
-    ESP_LOGI(TAG, "Firmware distribution complete");
-}

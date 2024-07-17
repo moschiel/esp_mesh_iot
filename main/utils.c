@@ -66,8 +66,8 @@ bool compare_mac(uint8_t mac1[6], uint8_t mac2[6]) {
     return memcmp(mac1, mac2, 6) == 0;
 }
 
-// Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
-void format_mac(char *str, const uint8_t *mac) {
+// Função auxiliar para converter o endereço MAC para a string a ultima metade (ultimos 3 bytes)
+void format_mac_half(char *str, const uint8_t *mac) {
     sprintf(str, ""MACSTREND"", MAC2STREND(mac));
 }
 

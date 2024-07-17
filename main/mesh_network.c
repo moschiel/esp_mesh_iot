@@ -74,7 +74,7 @@ void mesh_p2p_tx_task(void *arg)
             {
                 if((iteration_count % 10) == 0) { // reporta cada 10 segundos
                     mesh_data.proto = MESH_PROTO_JSON;
-                    mount_msg_node_connected((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer);
+                    mount_msg_node_status((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer, CONFIG_APP_PROJECT_VER);
                     mesh_data.size = strlen((char*)tx_buf) + 1;
 
                     err = esp_mesh_send(
@@ -89,7 +89,7 @@ void mesh_p2p_tx_task(void *arg)
 
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "'esp_mesh_send' fail, msg_id:%i, heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
-                    MSG_NODE_CONNECTED, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
+                    JSON_MSG_NODE_CONNECTED, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
             }
         }
 
@@ -115,13 +115,28 @@ void mesh_p2p_rx_task(void *arg)
             ESP_LOGE(TAG, "'esp_mesh_recv' err:0x%x, size:%d", err, mesh_data.size);
             continue;
         }
-        if(strlen((char*)mesh_data.data) < RX_SIZE)
-        {
-            ESP_LOGI(TAG, "Recv from "MACSTR": %s", MAC2STR(from.addr), (char*)mesh_data.data);
-        }
 
-        if(mesh_data.proto == MESH_PROTO_JSON)
+        if(mesh_data.proto == MESH_PROTO_BIN) {
+            if(mesh_data.size >= sizeof(uint16_t)) //size of msg id
+            {
+                uint16_t msg_id;
+                memcpy((uint8_t*)&msg_id, mesh_data.data, sizeof(uint16_t));
+                switch(msg_id)
+                {
+                    case BIN_MSG_FW_PACKET:
+                        if(!esp_mesh_is_root()) {
+                            process_msg_firmware_packet((firmware_packet_t*)mesh_data.data);
+                        }
+                    break;
+                }
+            }
+        }
+        else if(mesh_data.proto == MESH_PROTO_JSON)
         {
+            if(strlen((char*)mesh_data.data) < RX_SIZE) {
+                ESP_LOGI(TAG, "Recv from "MACSTR": %s", MAC2STR(from.addr), (char*)mesh_data.data);
+            }
+
             cJSON *root = cJSON_Parse((char*)mesh_data.data);
             if(root == NULL) {
                 ESP_LOGE(TAG, "Fail to parse JSON");
@@ -130,19 +145,14 @@ void mesh_p2p_rx_task(void *arg)
 
             cJSON *msg_id_json = cJSON_GetObjectItem(root, "msg_id");
 
-            bool parse_fail = false;
+            bool process_fail = false;
             if(msg_id_json && cJSON_IsNumber(msg_id_json)) {
                 switch (msg_id_json->valueint)
                 {
-                case MSG_NODE_CONNECTED:
+                case JSON_MSG_NODE_CONNECTED:
                     if(esp_mesh_is_root()) {
-                        uint8_t node_sta_addr[6];
-                        uint8_t parent_sta_addr[6];
-                        int layer;
-                        if(parse_msg_node_connected(root, node_sta_addr, parent_sta_addr, &layer)) {
-                            update_tree_with_node(node_sta_addr, parent_sta_addr, layer);
-                        } else {
-                            parse_fail = true;
+                        if(!process_msg_node_status(root)) {
+                            process_fail = true;
                         }
                     }    
                     break;
@@ -152,8 +162,8 @@ void mesh_p2p_rx_task(void *arg)
                 }    
             }
 
-            if(parse_fail) {
-                 ESP_LOGE(TAG, "Fail to parse json msg id: %i", MSG_NODE_CONNECTED);
+            if(process_fail) {
+                 ESP_LOGE(TAG, "Fail to parse json msg id: %i", JSON_MSG_NODE_CONNECTED);
             }
 
             // Libera a memória usada pelo objeto JSON

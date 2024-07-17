@@ -39,41 +39,46 @@ static void give_tree_mutex() {
 
 static void log_tree(void) {
     ESP_LOGW(TAG, "Tree Updated, Node Count: %i", tree_node_count + 1);
-    ESP_LOGW(TAG, "[1] root:"MACSTREND", layer:1", MAC2STREND(STA_MAC_address));
+    ESP_LOGW(TAG, "[1] root:"MACSTREND", layer:1, fw_ver:%s", MAC2STREND(STA_MAC_address), CONFIG_APP_PROJECT_VER);
     for (size_t i = 0; i < tree_node_count; i++) {
-        ESP_LOGW(TAG, "[%i] node:"MACSTREND", parent:"MACSTREND", layer:%i", 
-            (i+2), MAC2STREND(_mesh_tree_[i].node_sta_addr), MAC2STREND(_mesh_tree_[i].parent_sta_addr), _mesh_tree_[i].layer);
+        ESP_LOGW(TAG, "[%i] node:"MACSTREND", parent:"MACSTREND", layer:%i, fw_ver:%s", 
+            (i+2), MAC2STREND(_mesh_tree_[i].node_sta_addr), MAC2STREND(_mesh_tree_[i].parent_sta_addr), _mesh_tree_[i].layer, _mesh_tree_[i].fw_ver);
     }
 }
 
-void update_tree_with_node(uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer) {
+void update_tree_with_node(uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver) {
     if (take_tree_mutex("update_tree_with_node")) {
         // Verifica se a combinação já existe no array ou se o node_sta_addr já existe
         bool node_exist = false;
-        bool updated = false;
+        bool addOrUpdate = false;
+        uint8_t indexToAddOrUpdate = 0;
         for (size_t i = 0; i < tree_node_count; i++) {
             if (compare_mac(_mesh_tree_[i].node_sta_addr, node_sta_addr)) {
-                // Se o node_sta_addr já existe, 
                 node_exist = true;
-                if(compare_mac(_mesh_tree_[i].parent_sta_addr, parent_sta_addr) == false || _mesh_tree_[i].layer != layer) {
-                    //existe mas mudou o parent ou o layer, entao sobrescreve
-                    memcpy(_mesh_tree_[i].parent_sta_addr, parent_sta_addr, 6);
-                    _mesh_tree_[i].layer = layer;
-                    updated = true;
+                // Se o node_sta_addr já existe, mas algum dado mudou, vamos atualizar
+                if(compare_mac(_mesh_tree_[i].parent_sta_addr, parent_sta_addr) == false 
+                    || _mesh_tree_[i].layer != layer 
+                    || strcmp(_mesh_tree_[i].fw_ver, fw_ver) != 0
+                ) {
+                    addOrUpdate = true;
+                    indexToAddOrUpdate = i;
                 }
             }
         }
-
-        // Se o node não existe e há espaço no array, adiciona o novo item
+        
+        // Se o node não existe e há espaço no array, vamos adicionar o novo item
         if (node_exist == false && tree_node_count < CONFIG_MESH_ROUTE_TABLE_SIZE) {
-            memcpy(_mesh_tree_[tree_node_count].node_sta_addr, node_sta_addr, 6);
-            memcpy(_mesh_tree_[tree_node_count].parent_sta_addr, parent_sta_addr, 6);
-            _mesh_tree_[tree_node_count].layer = layer;
+            addOrUpdate = true;
+            indexToAddOrUpdate = tree_node_count;
             tree_node_count++;
-            updated = true;
         }
 
-        if(updated) {
+        if(addOrUpdate) {
+            memcpy(_mesh_tree_[indexToAddOrUpdate].node_sta_addr, node_sta_addr, 6);
+            memcpy(_mesh_tree_[indexToAddOrUpdate].parent_sta_addr, parent_sta_addr, 6);
+            _mesh_tree_[indexToAddOrUpdate].layer = layer;
+            strcpy(_mesh_tree_[indexToAddOrUpdate].fw_ver, fw_ver);
+            
             log_tree();
         }
 
@@ -150,7 +155,7 @@ MeshNode* get_mesh_tree_table(int *mesh_tree_count) {
 
 static void add_node_to_json(cJSON *parent, MeshNode *node, int layer) {
     char node_mac_str[9];
-    format_mac(node_mac_str, node->node_sta_addr);
+    format_mac_half(node_mac_str, node->node_sta_addr);
     
     cJSON *node_json = cJSON_CreateObject();
     cJSON_AddStringToObject(node_json, "name", node_mac_str);
@@ -178,7 +183,7 @@ char* build_mesh_tree_json(void) {
     if (take_tree_mutex("build_mesh_tree_json")) {
         // Função auxiliar para converter o endereço MAC para a string com os três últimos bytes
         char mac_str[9];
-        format_mac(mac_str, STA_MAC_address);
+        format_mac_half(mac_str, STA_MAC_address);
 
         //WiFi Router Node at layer 0
         cJSON *router_node = cJSON_CreateObject();
@@ -230,19 +235,21 @@ char* build_mesh_list_json(void) {
         cJSON *root = cJSON_CreateObject();
         cJSON *nodes = cJSON_AddArrayToObject(root, "nodes");
         cJSON *mainNode = cJSON_CreateObject();
-        format_mac(mac_str, STA_MAC_address);
+        format_mac_half(mac_str, STA_MAC_address);
         cJSON_AddStringToObject(mainNode, "name", mac_str);
         cJSON_AddStringToObject(mainNode, "parent", "WiFi Router");
         cJSON_AddNumberToObject(mainNode, "layer", 1);
+        cJSON_AddStringToObject(mainNode, "fw_ver", CONFIG_APP_PROJECT_VER);
         cJSON_AddItemToArray(nodes, mainNode);
 
         for (int i = 0; i < tree_node_count; i++) {
             cJSON *node = cJSON_CreateObject();
-            format_mac(mac_str, _mesh_tree_[i].node_sta_addr);
+            format_mac_half(mac_str, _mesh_tree_[i].node_sta_addr);
             cJSON_AddStringToObject(node, "name", mac_str);
-            format_mac(mac_str, _mesh_tree_[i].parent_sta_addr);
+            format_mac_half(mac_str, _mesh_tree_[i].parent_sta_addr);
             cJSON_AddStringToObject(node, "parent", mac_str);
             cJSON_AddNumberToObject(node, "layer", _mesh_tree_[i].layer);
+            cJSON_AddStringToObject(node, "fw_ver", _mesh_tree_[i].fw_ver);
             cJSON_AddItemToArray(nodes, node);
         }
 

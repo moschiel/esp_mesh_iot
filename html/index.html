@@ -104,16 +104,18 @@
 		// Função para construir a tabela a partir do JSON
 		function buildMeshTable(data) {
 			let table = document.getElementById('meshTable');
-			table.innerHTML = '<tr><th>Node</th><th>Parent</th><th>Layer</th></tr>';
+			table.innerHTML = '<tr><th>Node</th><th>Parent</th><th>Layer</th><th>Version</th></tr>';
 			if(data.nodes) {
 				data.nodes.forEach(node => {
 					let row = table.insertRow();
 					row.insertCell(0).textContent = node.name;
 					row.insertCell(1).textContent = node.parent;
 					row.insertCell(2).textContent = node.layer;
+					row.insertCell(3).textContent = node.fw_ver;
 				});
 			}
 		}
+		// Função para atualizar a barra de progresso de atualizacao do firmware
 		function updateProgress(percentage) {
             const progressBar = document.getElementById('progress-bar');
 

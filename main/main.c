@@ -100,7 +100,8 @@ void init_IOs() {
 void app_main(void) {
 	//nvs_flash_erase();
     
-    // ESP_LOGI(TAG, "App Version: %s", CONFIG_APP_PROJECT_VER); //ja imprimi na inicializacao baixo nivel da esp
+    // Inicializa o armazenamento não volátil (NVS)
+    nvs_flash_init();
 
     // Obtém o endereço da estacao MAC deste dispositvo
     esp_read_mac(STA_MAC_address, ESP_MAC_WIFI_STA);
@@ -109,8 +110,6 @@ void app_main(void) {
 
     init_IOs();
 
-    // Inicializa o armazenamento não volátil (NVS)
-    nvs_flash_init();
 
     APP_MODE_t app_mode = nvs_get_app_mode();
     switch(app_mode)

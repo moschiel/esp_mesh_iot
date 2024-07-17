@@ -18,6 +18,7 @@
 #define MAC_ADDR_LEN (6u)
 #define MAC_ADDR_EQUAL(a, b) (0 == memcmp(a, b, MAC_ADDR_LEN))
 
+
 /*******************************************************
  *                Type Definitions
  *******************************************************/
