@@ -39,8 +39,12 @@ One of the main challenges and attractions of this project was developing the OT
 The LED indicates the current state of the ESP32. The LED used is the default LED of the DevKit1 module:
 
 - **LED flashing very fast (10 times per second)**: This indicates that the Esp32 is not connected and is trying to connect to the mesh network or is trying to init AP mode. If this state keep for too long, something is wrong.
-- **LED flashing rapidly (5 times per second)**: This indicates that the button (pin 5) has been pressed and held long enough to change the esp32 mode. (AP mode / MESH mode)
+- **LED flashing rapidly (5 times per second)**: This indicates that the button (pin D5) has been connected to GND and held long enough to change the esp32 mode. (AP mode / MESH mode)
+
+
 - **LED flashing slowly (1 time per second)**: The ESP32 is on AP (Access Point) mode.
+![WhatsApp-Video-2024-07-19-at-17 54 49](https://github.com/user-attachments/assets/7ca663ab-8ca8-4c21-9800-ceb6c9a6d88c)
+
 - **LED on continuously**: The ESP32 is connected to the mesh network and operating normally.
 - **LED off**: The ESP32 is not connected or is in an error state.
 
