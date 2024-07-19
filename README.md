@@ -137,10 +137,13 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - Python installed (for the OTA update server)
 
 2. **Initial Configuration**:
-   - Connect the ESP32 and run the project. The ESP32 will start in AP mode if no saved credentials are found.
+   - Connect the ESP32 and flash the esp-idf project. The ESP32 will start in AP mode if no saved credentials are found.
    - Connect to the ESP32 WiFi using the SSID in the format "ESP32_Config_XXYYZZ" and the password `esp32config`.
-   - Access the default IP address (`192.168.4.1`).
+   - Use a browser to access the default IP address (`192.168.4.1`).
    - Configure the WiFi router and mesh network credentials on the configuration page.
+   - Press `Update Config` to save the configurations
+     ![image](https://github.com/user-attachments/assets/f24c81cd-8c1c-4598-9c9e-daa3d48353e4)
+
 
 3. **Connecting to the Mesh Network**:
    - After configuring the credentials, the ESP32 will restart and attempt to connect to the mesh network.
