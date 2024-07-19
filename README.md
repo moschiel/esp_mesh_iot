@@ -3,7 +3,7 @@
 
 This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices. The goal is to provide a connectivity solution for indoor environments with the ability to perform OTA (Over-The-Air) updates and, in the future, to control sensors and actuators.
 
-One of the main challenges and attractions of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF.
+One of the main challenges and attractions of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF only.
 
 ## Main Features
 
@@ -11,7 +11,7 @@ One of the main challenges and attractions of this project was developing the OT
    - When the ESP32 does not find saved WiFi credentials in NVS memory, it starts in access point (AP) mode.
    - The AP SSID is dynamically created in the format "ESP32_Config_XXYYZZ", where `XXYYZZ` are the last three bytes of the STA interface MAC address.
    - The default password is `esp32config`.
-   - The user can connect to the ESP WiFi and access the default IP address of the ESP in AP mode (`192.168.4.1`) to configure the initial credentials.
+   - The user can connect to the ESP WiFi and using a browser access the default IP address of the ESP in AP mode (`192.168.4.1`) to configure the initial credentials.
 
 2. **Connection to Mesh Network**:
    - After the initial configuration, the ESP32 restarts and attempts to connect to the mesh network using the provided credentials.
@@ -27,7 +27,7 @@ One of the main challenges and attractions of this project was developing the OT
    - The user can send the firmware URL to update all nodes in the mesh network.
    - A socket is opened between the browser and the root ESP, allowing the user to monitor the update progress.
 
-5. **Manual Switching Between AP and Mesh Modes**:
+5. **Manual Switching Between AP (Access Point) Mode and Mesh Mode**:
    - It is possible to manually switch between AP and Mesh modes through a pin described in the code.
    - An LED indicates the connection status and operation mode.
 
@@ -35,29 +35,28 @@ One of the main challenges and attractions of this project was developing the OT
 
 The LED indicates the current state of the ESP32. The LED used is the default LED of the DevKit1 module:
 
-- **LED flashing rapidly (5 times per second)**: The ESP32 is in initial configuration mode. This indicates that the button has been pressed and held long enough to initiate the configuration.
-- **LED flashing slowly (1 time per second)**: The ESP32 is trying to connect to the mesh network.
+- **LED flashing very fast (10 times per second)**: This indicates that the Esp32 is not connected and is trying to connect to the mesh network or is trying to init AP mode. If this state keep for too long, something is wrong.
+- **LED flashing rapidly (5 times per second)**: This indicates that the button (pin 5) has been pressed and held long enough to change the esp32 mode. (AP mode / MESH mode)
+- **LED flashing slowly (1 time per second)**: The ESP32 is on AP (Access Point) mode.
 - **LED on continuously**: The ESP32 is connected to the mesh network and operating normally.
 - **LED off**: The ESP32 is not connected or is in an error state.
 
 ## HTML Storage
 
-The project supports three methods for storing and serving HTML files:
+The project supports three methods for storing and serving HTML files that are placed on 'html' folder:
 
 1. **USE_HTML_FROM_EMBED_TXTFILES**
    - Uses embedded text files to store the HTML.
    - Files are read and embedded into the binary during compilation.
-   - Used in `web_server.c` and `web_server.h`.
 
 2. **USE_HTML_FROM_MACROS**
    - Uses macros to store the HTML.
    - HTML is converted into macros defined in `html_macros.h` and included directly in the source code.
-   - Used in `html_macros.h`, `web_server.c`, and `web_server.h`.
 
 3. **USE_HTML_FROM_SPIFFS**
    - Uses SPIFFS (SPI Flash File System) to store the HTML.
    - HTML is stored as files in the SPIFFS, allowing easy updates and modifications.
-   - Used in `web_server.c` and `web_server.h`.
+   - Atention: the HTML files are not updated Over-the-Air in this mode, this functionality still has to be implemented.
 
 To define which method to use, the user must modify the `web_server.h` file and set only one of the defines to 1. For example:
 
@@ -72,7 +71,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
 1. **`/`**
    - **Method:** GET
    - **Handler:** `root_get_handler`
-   - **Description:** Returns the main page of the web server, usually the initial configuration page where the user can configure the WiFi router and mesh network credentials.
+   - **Description:** Returns the main page of the web server, it is the initial configuration page where the user can configure the WiFi router and mesh network credentials.
 
 2. **`/get_configs`**
    - **Method:** GET
@@ -82,7 +81,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
 3. **`/mesh_list_data`**
    - **Method:** GET
    - **Handler:** `mesh_list_data_handler`
-   - **Description:** Returns a list of all devices connected to the mesh network, including the MAC addresses of the nodes.
+   - **Description:** Returns a list of all devices connected to the mesh network, including the MAC addresses of the nodes, layer and firmware version.
 
 4. **`/set_wifi`**
    - **Method:** POST
@@ -97,7 +96,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
 6. **`/mesh_tree_data`**
    - **Method:** GET
    - **Handler:** `mesh_tree_data_handler`
-   - **Description:** Provides the data needed to generate the mesh network tree view. This route typically returns JSON data with the network structure.
+   - **Description:** Provides the data needed to generate the mesh network tree view. This route returns JSON data with the network structure.
 
 7. **`/ws_update`**
    - **Method:** GET
@@ -124,7 +123,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
 ## Configuration Tutorial
 
 1. **Prerequisites**:
-   - ESP32-DevKitV1
+   - At least two ESP32-DevKitV1 (One is going to be the root node, add others to grow the mesh network)
    - Configured ESP-IDF development environment
    - Python installed (for the OTA update server)
 
@@ -148,12 +147,6 @@ To define which method to use, the user must modify the `web_server.h` file and 
 5. **Viewing the Mesh Network**:
    - Access `mesh_graph.html` to view the mesh network topology in tree format.
 
-## Files and Folders
-
-- **README.md**: This document.
-- **LICENSE**: Project license.
-- **partitions.csv**: Partition table.
-- **sdkconfig**: SDK configuration file.
 
 ## Building and Flashing the Project
 
@@ -163,23 +156,13 @@ To define which method to use, the user must modify the `web_server.h` file and 
    cd esp_mesh_iot
    ```
 
-2. Set up the ESP-IDF environment:
-   ```bash
-   . $IDF_PATH/export.sh
-   ```
-
-3. Configure the project:
-   ```bash
-   idf.py menuconfig
-   ```
-
-4. Build and flash the project to the ESP32:
+2. Build and flash the project to the ESP32:
    ```bash
    idf.py build
    idf.py flash
    ```
 
-5. Monitor the ESP32 output:
+3. Monitor the ESP32 output:
    ```bash
    idf.py monitor
    ```
