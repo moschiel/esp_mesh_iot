@@ -381,6 +381,9 @@ bool is_webserver_active(void) {
 static void wifi_init_softap(void) {
     ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
 
+    // Inicializa o armazenamento não volátil (NVS)
+    nvs_flash_init();
+
     // Inicializa a pilha de rede
     esp_netif_init();
     esp_event_loop_create_default();
