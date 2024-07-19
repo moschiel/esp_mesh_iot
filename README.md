@@ -1,6 +1,9 @@
 
 # ESP32 Mesh Network IoT Project
 
+![image](https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da)
+
+
 This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices. The goal is to provide a connectivity solution for indoor environments with the ability to perform OTA (Over-The-Air) updates and, in the future, to control sensors and actuators.
 
 One of the main challenges and attractions of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF only.
@@ -71,7 +74,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
 1. **`/`**
    - **Method:** GET
    - **Handler:** `root_get_handler`
-   - **Description:** Returns the main page of the web server, it is the initial configuration page where the user can configure the WiFi router and mesh network credentials.
+   - **Description:** Returns the main page (index.html) of the web server, it is the initial configuration page where the user can configure the WiFi router and mesh network credentials.
 
 2. **`/get_configs`**
    - **Method:** GET
@@ -81,7 +84,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
 3. **`/mesh_list_data`**
    - **Method:** GET
    - **Handler:** `mesh_list_data_handler`
-   - **Description:** Returns a list of all devices connected to the mesh network, including the MAC addresses of the nodes, layer and firmware version.
+   - **Description:** Returns JSON data presenting a list of all devices connected to the mesh network, including the MAC addresses of the nodes, layer and firmware version.
 
 4. **`/set_wifi`**
    - **Method:** POST
