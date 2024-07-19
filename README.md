@@ -143,14 +143,13 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - Connect the ESP32 and flash the esp-idf project. The ESP32 will start in AP mode if no saved credentials are found.
    - Connect to the ESP32 WiFi using the SSID in the format "ESP32_Config_XXYYZZ" and the password `esp32config`.
    - Use a browser to access the default IP address (`192.168.4.1`).
-   - Configure the WiFi router and mesh network credentials on the configuration page.
-   - Press `Update Config` to save the configurations
+   - Insert the credentials used in your WiFi router, and set any mesh network credentials on the configuration page.
+   - Press `Update Config` to save the configurations, the ESP32 will restart and attempt to connect to the mesh network.
      
      ![image](https://github.com/user-attachments/assets/f24c81cd-8c1c-4598-9c9e-daa3d48353e4)
 
 
 3. **Connecting to the Mesh Network**:
-   - After configuring the credentials, the ESP32 will restart and attempt to connect to the mesh network.
    - Access the static IP address configured for the ESP32 to view the configuration and update options.
 
 4. **OTA Update**:
