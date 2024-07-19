@@ -39,6 +39,9 @@ One of the main challenges and attractions of this project was developing the OT
 The LED indicates the current state of the ESP32. The LED used is the default LED of the DevKit1 module:
 
 - **LED flashing very fast (10 times per second)**: This indicates that the Esp32 is not connected and is trying to connect to the mesh network or is trying to init AP mode. If this state keep for too long, something is wrong.
+  
+  ![WhatsApp Video 2024-07-19 at 19 05 14](https://github.com/user-attachments/assets/1c8c87c1-aade-4880-aab9-e3226bf6db12)
+
 - **LED flashing rapidly (5 times per second)**: This indicates that the button (pin D5) has been connected to GND and held long enough to change the esp32 mode. (AP mode / MESH mode)
   
 ![WhatsApp Video 2024-07-19 at 18 00 28](https://github.com/user-attachments/assets/7dd2ba66-d8a0-4c68-8436-7d66273f339d)
@@ -142,6 +145,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - Use a browser to access the default IP address (`192.168.4.1`).
    - Configure the WiFi router and mesh network credentials on the configuration page.
    - Press `Update Config` to save the configurations
+     
      ![image](https://github.com/user-attachments/assets/f24c81cd-8c1c-4598-9c9e-daa3d48353e4)
 
 
