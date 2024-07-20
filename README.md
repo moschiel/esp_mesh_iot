@@ -1,12 +1,12 @@
 
-# ESP32 Mesh Network IoT Project
+# ESP32 Mesh Network for Local Indoor
 
 ![image](https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da)
 
+This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices for local indoor use. It does not rely on an internet connection, but the user needs a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it. All interactions with the mesh network are done through a web server hosted by the main node of the mesh network, meaning that control and monitoring are limited to devices connected to the same local network.
 
-This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices. The goal is to provide a connectivity solution for indoor environments with the ability to perform OTA (Over-The-Air) updates and, in the future, to control sensors and actuators.
+One of the main challenges of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
 
-One of the main challenges and attractions of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF only.
 
 ## Main Features
 
@@ -14,7 +14,7 @@ One of the main challenges and attractions of this project was developing the OT
    - When the ESP32 does not find saved WiFi credentials in NVS memory, it starts in access point (AP) mode.
    - The AP SSID is dynamically created in the format "ESP32_Config_XXYYZZ", where `XXYYZZ` are the last three bytes of the STA interface MAC address.
    - The default password is `esp32config`.
-   - The user can connect to the ESP WiFi and using a browser access the default IP address of the ESP in AP mode (`192.168.4.1`) to configure the initial credentials.
+   - The user can connect to the ESP WiFi and use a browser to access the default IP address of the ESP in AP mode (`192.168.4.1`) to configure the initial credentials.
 
 2. **Connection to Mesh Network**:
    - After the initial configuration, the ESP32 restarts and attempts to connect to the mesh network using the provided credentials.
@@ -38,19 +38,19 @@ One of the main challenges and attractions of this project was developing the OT
 
 The LED indicates the current state of the ESP32. The LED used is the default LED of the DevKit1 module:
 
-- **LED flashing very fast (10 times per second)**: This indicates that the Esp32 is not connected and is trying to connect to the mesh network or is trying to init AP mode. If this state keep for too long, something is wrong.
+- **LED flashing very fast (10 times per second)**: This indicates that the ESP32 is not connected and is trying to connect to the mesh network or is trying to initiate AP mode. If this state persists for too long, try changing the ESP mode manually to Access Point mode to check the configurations.
   
    ![WhatsApp Video 2024-07-19 at 19 05 14](https://github.com/user-attachments/assets/1c8c87c1-aade-4880-aab9-e3226bf6db12)
 
-- **LED flashing rapidly (5 times per second)**: This indicates that the button (pin D5) has been connected to GND and held long enough to change the esp32 mode. (AP mode / MESH mode)
+- **LED flashing rapidly (5 times per second)**: This indicates that the button (pin D5) has been connected to GND and held long enough to change the ESP32 mode (AP mode / MESH mode).
 
    ![WhatsApp Video 2024-07-19 at 18 00 28](https://github.com/user-attachments/assets/7dd2ba66-d8a0-4c68-8436-7d66273f339d)
 
-- **LED flashing slowly (1 time per second)**: The ESP32 is on AP (Access Point) mode.
+- **LED flashing slowly (1 time per second)**: The ESP32 is in AP (Access Point) mode. You can set configurations by connecting to the ESP WiFi "ESP32_Config_XXXX" with any device (like a smartphone or computer) and use a browser to access the address 192.168.4.1.
 
    ![WhatsApp Video 2024-07-19 at 17 54 49](https://github.com/user-attachments/assets/75ca0477-9c05-4266-925d-dc94347368ef)
 
-- **LED on continuously**: The ESP32 is connected to the mesh network and operating normally.
+- **LED on continuously**: The ESP32 is connected to the mesh network and operating normally. You can access it with any device using a browser by typing in the static IP address of the root node. Your device must be connected to the same WiFi router as the mesh network.
 - **LED off**: This should not happen.
 
 ## HTML Storage
