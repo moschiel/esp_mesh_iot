@@ -5,7 +5,7 @@
 
 This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices for local indoor use. It does not rely on an internet connection, but the user needs a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it. All interactions with the mesh network are done through a http server hosted by the root node of the mesh network, meaning that control and monitoring are limited to devices connected to the same local network.
 
-One of the challenges of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
+One of the challenges of this project was developing the OTA (Over-the-Air) functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
 
 In the future, there are plans to implement remote control capabilities over the internet.
 
@@ -149,7 +149,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - If everything goes well, the device will start blinking very fast (searching for the WiFi router), then the LED will turn on continuously. Otherwise, something was configured incorrectly, and you will need to manually switch back to AP mode.
    - Repeat this process for every ESP32 that should connect to the mesh network. It is important to set the same configuration on every device (unless you want to set up more than one mesh network).
 
-![image](https://github.com/user-attachments/assets/705011f2-50fa-468b-896b-1beda67c89c3)
+      ![image](https://github.com/user-attachments/assets/705011f2-50fa-468b-896b-1beda67c89c3)
 
 
 3. **Access to Mesh Network**:
@@ -159,7 +159,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - If there are multiple devices connected, it is possible to visualize a list of all nodes on the network.
    - Click on 'Refresh' button to update the list of connected nodes.
 
-![image](https://github.com/user-attachments/assets/23e154c8-603c-4567-b564-df4eae716113)
+      ![image](https://github.com/user-attachments/assets/23e154c8-603c-4567-b564-df4eae716113)
 
 
 3. **Access to Mesh Tree View**:
