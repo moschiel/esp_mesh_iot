@@ -1,13 +1,21 @@
 
 # ESP32 Mesh Control
 
-![image](https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da)
+<!--
+![image](https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da) 
+![Recorder_29062024_121057](https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76)
+-->
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da" alt="Example Image" height="450"/>
+  <img src="https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76" alt="Example Image" height="450"/>
+</p>
 
 This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices for local indoor use. It does not rely on an internet connection, but the user needs a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it. All interactions with the mesh network are done through a http server hosted by the root node of the mesh network, meaning that control and monitoring are limited to devices connected to the same local network.
 
 One of the challenges of this project was developing the OTA (Over-the-Air) functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
 
 In the future, there are plans to implement remote control capabilities over the internet.
+
 
 ## Main Features
 
@@ -157,14 +165,18 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - Using a device connected to the same WiFi router as the mesh network, open a browser and access the static IP address configured for the ESP32 to view the configuration and update options.
    - If you update the configs here, the configurations will be broadcasted to all devices in the mesh network.
    - If there are multiple devices connected, it is possible to visualize a list of all nodes on the network.
-   - Click on 'Refresh' button to update the list of connected nodes.
+   - Click on `Refresh` button to update the list of connected nodes.
 
       ![image](https://github.com/user-attachments/assets/ea7d4d4a-de41-43e4-9b7f-9f1c9605b5fe)
 
 
 
 3. **Access to Mesh Tree View**:
-   - Click on 'Open Tree View' to view the mesh network topology in tree format.
+   - Click on `Open Tree View` or access the route `http://<your_static_ip_addr>/mesh_tree_view` to view the mesh network topology in tree format.
+      <!-- ![Recorder_29062024_121057](https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76) -->
+     <p>
+        <img src="https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76" alt="Example Image" height="450"/>
+      </p>
 
 4. **OTA Update**:
    - Run a local web server on your computer to host the .bin firmware file.
