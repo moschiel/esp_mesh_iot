@@ -10,6 +10,7 @@
 #define MESHSTR "%02X-%02X-%02X-%02X-%02X-%02X"
 #define MESH2STR(mesh_id) (mesh_id)[0],(mesh_id)[1],(mesh_id)[2],(mesh_id)[3],(mesh_id)[4],(mesh_id)[5]
 
+#define IP_ADDR_LEN 16 // sizeof("000.000.000.000")
 
 void print_chip_info(void);
 void mac_str_to_bytes(const char *mac_str, uint8_t *mac_bytes);

@@ -63,6 +63,21 @@
  table, th, td { border:1px solid black; }
 </style>
 <script>let ws;
+ function formatIP(input){
+ let value = input.value;
+ value = value.replace(/[^0-9.]/g,'');
+ const octets = value.split('.').map(octet =>{
+ if (octet.length > 3){
+ octet = octet.substring(0,3);
+}
+ const num = parseInt(octet,10);
+ if (isNaN(num)){
+ return '';
+}
+ return Math.min(Math.max(num,0),255).toString();
+});
+ input.value = octets.join('.').slice(0,15);
+}
  function formatMeshID(e){
  var r = e.target.value.replace(/[^a-fA-F0-9]/g,'');
  e.target.value = r.match(/.{1,2}/g).join('-');
@@ -84,6 +99,9 @@
  document.getElementById('device_mac_addr').value = data.device_mac_addr;
  document.getElementById('router_ssid').value = data.router_ssid;
  document.getElementById('router_password').value = data.router_password;
+ document.getElementById('router_ip').value = data.router_ip;
+ document.getElementById('root_ip').value = data.root_ip;
+ document.getElementById('netmask').value = data.netmask;
  document.getElementById('mesh_id').value = data.mesh_id;
  document.getElementById('mesh_password').value = data.mesh_password;
  document.getElementById('firmware_url').value = data.fw_url;
@@ -130,7 +148,7 @@
  if(data.id && data.id == 'ota_status'){
  if (data.msg){
  el_ota_status.textContent = data.msg;
- if(data.percent){
+ if(data.percent != undefined){
  updateProgress(data.percent);
 }
  el_ota_status.style.color = data.isError ? 'red':'black';
@@ -178,7 +196,7 @@
 </head>
 <body>
 <br />
-<p>v1.8</p>
+<p>v1.9</p>
 <div class="container">
 <h2>Device Info</h2>
 <p >Root MAC address:<span id="device_mac_addr">08:d1:f9:dd:80:9c</span></p>
@@ -186,12 +204,20 @@
 <br />
 <div class="container">
 <form onsubmit="submitConfigForm(event)">
-<h2>Configure WiFi Router</h2>
+<h2>Configure WiFi Router Credentials</h2>
 <label for="router_ssid">Router SSID:</label><br />
 <input type="text" id="router_ssid" name="router_ssid" required /><br />
 <label for="router_password">Router Password:</label><br />
 <input type="password" id="router_password" name="router_password" required /><br />
 <input type="checkbox" onclick='togglePassword("router_password")' />Show Password<br />
+<br /><br />
+<h2>Configure IP Address</h2>
+<label for="router_ip">Gateway Address (Router IP):</label><br />
+<input type="text" id="router_ip" name="router_ip" oninput="formatIP(this)" required /><br />
+<label for="root_ip">Root Node Static IP:</label><br />
+<input type="text" id="root_ip" name="root_ip" oninput="formatIP(this)" required /><br />
+<label for="netmask">Netmask:</label><br />
+<input type="text" id="netmask" name="netmask" oninput="formatIP(this)" required /><br />
 <br /><br />
 <h2>Configure Mesh Network</h2>
 <label for="mesh_id">Mesh ID:</label><br />
@@ -218,8 +244,8 @@
 <br />
 <div class="container">
 <h3>Nodes in Mesh Network</h3>
-<button onclick="openTree()">Open Tree View</button>
 <button onclick="fetchJsonMeshList()">Refresh</button>
+<button onclick="openTree()">Open Tree View</button>
 <br /><br />
 <table id="meshTable">
 </table>

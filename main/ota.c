@@ -112,7 +112,7 @@ fw_packet_retry:
         ESP_LOGI(TAG, "Firmware distribution complete");
         send_ws_ota_status("Update complete", true, false, 100);
     } else {
-        send_ws_ota_status("Update CHILD nodes FAILED...", true, true, 100);
+        send_ws_ota_status("Update CHILD nodes FAILED...", true, true, 0);
     }
 }
 

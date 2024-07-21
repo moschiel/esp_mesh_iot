@@ -20,11 +20,22 @@
 
 #if USE_HTML_FROM_EMBED_TXTFILES
 #if USE_MIN_HTML
-extern const uint8_t embed_index_html[] asm("_binary_min_index_html_start");
-extern const uint8_t embed_mesh_graph_html[] asm("_binary_min_mesh_graph_html_start");
+extern const uint8_t index_html[] asm("_binary_min_index_html_start");
+extern const uint8_t mesh_graph_html[] asm("_binary_min_mesh_graph_html_start");
 #elif USE_FULL_HTML
-extern const uint8_t embed_index_html[] asm("_binary_index_html_start");
-extern const uint8_t embed_mesh_graph_html[] asm("_binary_mesh_graph_html_start");
+extern const uint8_t index_html[] asm("_binary_index_html_start");
+extern const uint8_t mesh_graph_html[] asm("_binary_mesh_graph_html_start");
+#endif
+#elif USE_HTML_FROM_MACROS
+const char index_html[] = INDEX_HTML;
+const char mesh_graph_html[] = MESH_GRAPH_HTML;
+#elif USE_HTML_FROM_SPIFFS
+#if USE_MIN_HTML
+const char index_html[] = "/spiffs/min_index.html";
+const char mesh_graph_html[] = "/spiffs/min_mesh_graph.html";
+#elif USE_FULL_HTML
+const char index_html[] = "/spiffs/index.html";
+const char mesh_graph_html[] = "/spiffs/mesh_graph.html";
 #endif
 #endif
 
@@ -45,16 +56,12 @@ static void init_spiffs(void);
 
 // Manipulador para a rota raiz "/"
 static esp_err_t root_get_handler(httpd_req_t *req) {
-#if USE_HTML_FROM_EMBED_TXTFILES
-    httpd_resp_send_str_chunk(req, (const char*)embed_index_html);
-    httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
-    return ESP_OK;
-#elif USE_HTML_FROM_MACROS
-    httpd_resp_send_str_chunk(req, (const char*)INDEX_HTML);
+#if USE_HTML_FROM_EMBED_TXTFILES || USE_HTML_FROM_MACROS
+    httpd_resp_send_str_chunk(req, (const char*)index_html);
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
 #elif USE_HTML_FROM_SPIFFS
-    FILE* f = fopen("/spiffs/index.html", "r");
+    FILE* f = fopen(index_html, "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
         httpd_resp_send_404(req);
@@ -74,27 +81,34 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 
 static esp_err_t root_get_configs_handler(httpd_req_t *req) {
     // Get WiFi router credentials from NVS
-    char router_ssid[MAX_SSID_LEN];
-    char router_password[MAX_PASS_LEN];
+    char router_ssid[MAX_SSID_LEN] = {0};
+    char router_password[MAX_PASS_LEN] = {0};
     nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
-    router_ssid[MAX_SSID_LEN-1] = '\0';
-    router_password[MAX_PASS_LEN-1] = '\0';
+
+    // Get IP address config
+    char router_ip[IP_ADDR_LEN] = {0};
+    char root_node_ip[IP_ADDR_LEN] = {0};
+    char netmask[IP_ADDR_LEN] = {0};
+    nvs_get_ip_config(router_ip, root_node_ip, netmask);
 
     // Obtem as credenciais da rede mesh da NVS
     uint8_t mesh_id[6];
-    char mesh_password[MAX_PASS_LEN];
+    char mesh_password[MAX_PASS_LEN] = {0};
     nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
 
     //Obtem ultimo fw url
     char fw_url[100] = {0};
     nvs_get_ota_fw_url(fw_url, sizeof(fw_url));
 
-    char response[500];
+    char response[600];
     sprintf(response, 
         "{"
             "\"device_mac_addr\":\""MACSTR"\","
             "\"router_ssid\":\"%s\","
             "\"router_password\":\"%s\","
+            "\"router_ip\":\"%s\","
+            "\"root_ip\":\"%s\","
+            "\"netmask\":\"%s\","
             "\"mesh_id\":\""MESHSTR"\"," 
             "\"mesh_password\":\"%s\","
             "\"is_connected\":%s,"
@@ -103,6 +117,9 @@ static esp_err_t root_get_configs_handler(httpd_req_t *req) {
         MAC2STR(STA_MAC_address),
         router_ssid,
         router_password,
+        router_ip,
+        root_node_ip,
+        netmask,
         MESH2STR(mesh_id),
         mesh_password,
         is_mesh_parent_connected()? "true":"false",
@@ -147,15 +164,22 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
     // Extrai SSID e senha do buffer recebido usando sscanf
     char router_ssid[MAX_SSID_LEN] = {0};
     char router_password[MAX_PASS_LEN] = {0};
+    char router_ip[IP_ADDR_LEN] = {0};
+    char root_node_ip[IP_ADDR_LEN] = {0};
+    char netmask[IP_ADDR_LEN] = {0};
     char mesh_id_str[6*3] = {0};  // Buffer para a string do mesh_id no formato MAC
     char mesh_password[MAX_PASS_LEN] = {0};
-    sscanf(buf, "router_ssid=%[^&]&router_password=%[^&]&mesh_id=%[^&]&mesh_password=%s", router_ssid, router_password, mesh_id_str, mesh_password);
+    sscanf(buf, "router_ssid=%[^&]&router_password=%[^&]&router_ip=%[^&]&root_ip=%[^&]&netmask=%[^&]&mesh_id=%[^&]&mesh_password=%s", 
+        router_ssid, router_password, router_ip, root_node_ip, netmask, mesh_id_str, mesh_password);
 
-    if (strlen(router_ssid) > 0 && strlen(router_password) > 0 && strlen(mesh_id_str) > 0 && strlen(mesh_password) > 0) {
+    if (strlen(router_ssid) > 0 && strlen(router_password) > 0 &&
+        strlen(router_ip) > 0 && strlen(root_node_ip) > 0 && strlen(netmask) > 0 &&
+        strlen(mesh_id_str) > 0 && strlen(mesh_password) > 0) {
         uint8_t mesh_id[6] = {0};
         mac_str_to_bytes(mesh_id_str, mesh_id);
 
         nvs_set_wifi_credentials(router_ssid, router_password);
+        nvs_set_ip_config(router_ip, root_node_ip, netmask);
         nvs_set_mesh_credentials(mesh_id, mesh_password);
 
         // Send HTTP response with 200 OK
@@ -191,16 +215,12 @@ static esp_err_t mesh_list_data_handler(httpd_req_t *req)
 
 // Manipulador para a rota "/mesh_tree_view" para carregar a vizualizacao da arvore
 static esp_err_t mesh_tree_view_handler(httpd_req_t *req) {
-#if USE_HTML_FROM_EMBED_TXTFILES
-    httpd_resp_send_str_chunk(req, (const char*)embed_mesh_graph_html);
-    httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
-    return ESP_OK;
-#elif USE_HTML_FROM_MACROS
-    httpd_resp_send_str_chunk(req, (const char*)MESH_GRAPH_HTML);
+#if USE_HTML_FROM_EMBED_TXTFILES || USE_HTML_FROM_MACROS
+    httpd_resp_send_str_chunk(req, (const char*)mesh_graph_html);
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
 #elif USE_HTML_FROM_SPIFFS
-    FILE* f = fopen("/spiffs/mesh-graph.html", "r");
+    FILE* f = fopen(mesh_graph_html, "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
         httpd_resp_send_404(req);
@@ -382,7 +402,7 @@ static void wifi_init_softap(void) {
     ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
 
     // Inicializa o armazenamento não volátil (NVS)
-    nvs_flash_init();
+    // nvs_flash_init();
 
     // Inicializa a pilha de rede
     esp_netif_init();

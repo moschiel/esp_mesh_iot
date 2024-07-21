@@ -98,7 +98,7 @@ void init_IOs() {
 
 // Função principal do aplicativo
 void app_main(void) {
-	//nvs_flash_erase();
+	// nvs_flash_erase();
     
     // Inicializa o armazenamento não volátil (NVS)
     nvs_flash_init();

@@ -123,7 +123,7 @@
 
 <body>
 	<div class="container">
-		<p>v1.2</p>
+		<p>v1.3</p>
 		<h1>Mesh Network Tree</h1>
 		<button id="load-button" onclick="fetchTreeData()">Refresh</button>
 		<div class="svg-container">
@@ -245,10 +245,8 @@
 				console.error('Error fetching mesh data:', error);
 			});
 		}
-		// Chama a função de busca de JSON após o carregamento da página
-		document.addEventListener('DOMContentLoaded', fetchTreeData);
 
-		// Comentar linha de cima, e descomentar abaixo para usar o json de exemplo
+		//Descomentar abaixo para usar o json de exemplo
 		// function setTreeDataExample() {
 		// 	const data =
 		// 	{
@@ -317,6 +315,10 @@
 		// 	update(root, root);
 		// }
 		// document.addEventListener('DOMContentLoaded', setTreeDataExample);
+		// return;
+
+		// Chama a função de busca de JSON após o carregamento da página
+		document.addEventListener('DOMContentLoaded', fetchTreeData);
 	</script>
 </body>
 

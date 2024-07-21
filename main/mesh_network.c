@@ -282,9 +282,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
             esp_netif_dhcpc_stop(netif_sta);
             esp_netif_dhcpc_start(netif_sta);
             
-            #ifdef DEFAULT_USE_STATIC_IP
             set_static_ip(netif_sta);
-            #endif
 
             clear_node_tree();
            // start_tree_monitor();
@@ -466,7 +464,7 @@ void ip_event_handler(void *arg, esp_event_base_t event_base,
 void start_mesh(char* router_ssid, char* router_password, uint8_t mesh_id[6], char* mesh_password)
 {
     // Inicializa o armazenamento não volátil (NVS)
-    ESP_ERROR_CHECK(nvs_flash_init());
+    // ESP_ERROR_CHECK(nvs_flash_init());
 
     /*  tcpip initialization */
     ESP_ERROR_CHECK(esp_netif_init());

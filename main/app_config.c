@@ -11,6 +11,7 @@
 #include "esp_mac.h"
 
 #include "app_config.h"
+#include "utils.h"
 
 #define APP_NAMESPACE "app_config"  // Namespace para armazenar as configurações da aplicacao na NVS
 #define WIFI_ROUTER_SSID_KEY "wifi_ssid"  // Chave para o SSID do roteador WiFi na NVS
@@ -19,6 +20,9 @@
 #define MESH_PASSWORD_KEY "mesh_password"  // Chave para a senha da rede mesh na NVS
 #define APP_MODE_KEY "app_mode" // Chave para a modo da aplicacao na NVS
 #define OTA_FW_URL_KEY "ota_fw_url"
+#define GATEWAY_IP_KEY "gateway_ip"
+#define ROOT_NODE_STATIC_IP_KEY "root_static_ip"
+#define NETMASK_KEY "netmask"
 
 static const char *TAG = "APP_CONFIG";
 
@@ -166,3 +170,48 @@ esp_err_t nvs_get_ota_fw_url(char *fw_url, size_t max_url_len) {
     }
     return err;
 }
+
+esp_err_t nvs_set_ip_config(const char *gateway_ip, const char *root_node_ip, const char *netmask) {
+    ESP_LOGI(TAG, "Setting IP, gateway: %s, root node: %s, netmask: %s", gateway_ip, root_node_ip, netmask);
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = nvs_set_str(nvs_handle, GATEWAY_IP_KEY, gateway_ip);
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs_handle, ROOT_NODE_STATIC_IP_KEY, root_node_ip);
+        if (err == ESP_OK) {
+            err = nvs_set_str(nvs_handle, NETMASK_KEY, netmask);
+        }   
+    }
+    nvs_commit(nvs_handle);
+    nvs_close(nvs_handle);
+    return err;
+}
+
+esp_err_t nvs_get_ip_config(char *gateway_ip, char *root_node_ip, char *netmask) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(APP_NAMESPACE, NVS_READONLY, &nvs_handle);
+    size_t len = IP_ADDR_LEN;
+    if (err == ESP_OK) {
+        len = IP_ADDR_LEN;
+        err = nvs_get_str(nvs_handle, GATEWAY_IP_KEY, gateway_ip, &len);
+        if (err == ESP_OK) {
+            len = IP_ADDR_LEN;
+            err = nvs_get_str(nvs_handle, ROOT_NODE_STATIC_IP_KEY, root_node_ip, &len);
+            if (err == ESP_OK) {
+                len = IP_ADDR_LEN;
+                err = nvs_get_str(nvs_handle, NETMASK_KEY, netmask, &len);
+            }
+        }
+    }
+    nvs_close(nvs_handle);
+
+    if(err != ESP_OK) {
+        ESP_LOGE(TAG, "Falha ao obter configuração de endereço IP");
+    }
+    return err;
+}
+
