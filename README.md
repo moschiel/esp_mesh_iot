@@ -6,7 +6,7 @@
 ![Recorder_29062024_121057](https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76)
 -->
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da" alt="Example Image" height="400"/>
+  <img src="https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da" alt="Example Image" height="350"/>
   <img src="https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76" alt="Example Image" height="400"/>
 </p>
 
