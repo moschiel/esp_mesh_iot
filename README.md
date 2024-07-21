@@ -149,11 +149,13 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - If everything goes well, the device will start blinking very fast (searching for the WiFi router), then the LED will turn on continuously. Otherwise, something was configured incorrectly, and you will need to manually switch back to AP mode.
    - Repeat this process for every ESP32 that should connect to the mesh network. It is important to set the same configuration on every device (unless you want to set up more than one mesh network).
 
-     ![image](https://github.com/user-attachments/assets/f24c81cd-8c1c-4598-9c9e-daa3d48353e4)
+![image](https://github.com/user-attachments/assets/705011f2-50fa-468b-896b-1beda67c89c3)
+
 
 3. **Access to Mesh Network**:
    - If the LED is on continuously (not blinking), it is in Mesh mode.
    - Using a device connected to the same WiFi router as the mesh network, open a browser and access the static IP address configured for the ESP32 to view the configuration and update options.
+   - If you update the configs here, the configurations will be broadcasted to all devices in the mesh network.
    - If there are multiple devices connected, it is possible to visualize a list of all nodes on the network.
    - Click on 'Refresh' to update the list of connected nodes.
    - Click on 'Open Tree View' to view the mesh network topology in tree format.
