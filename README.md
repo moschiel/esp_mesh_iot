@@ -10,9 +10,10 @@
   <img src="https://github.com/user-attachments/assets/66d2d87f-d40f-40d2-8d06-2e24a43f2b76" alt="Example Image" height="400"/>
 </p>
 
-This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices. Currently it only supports local indoor use, therefore it does not rely on an internet connection, but the user needs a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it. All interactions with the mesh network are done through a http server hosted by the ESP32 itself, meaning that control and monitoring are limited to devices connected to the same local network as the mesh.
 
-One of the challenges of this project was developing the OTA (Over-the-Air) functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
+This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices. Currently, it only supports local indoor use, so it does not rely on an internet connection. Users need a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it through an HTTP server hosted by the ESP32 itself.
+
+A key challenge of this project was developing OTA (Over-the-Air) functionality using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is tailored for developers who prefer or need to use ESP-IDF exclusively.
 
 In the future, there are plans to implement remote control capabilities over the internet.
 
