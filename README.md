@@ -76,8 +76,7 @@ The project supports three methods for storing and serving HTML files that are p
 
 3. **USE_HTML_FROM_SPIFFS**
    - Uses SPIFFS (SPI Flash File System) to store the HTML.
-   - HTML is stored as files in the SPIFFS, allowing easy updates and modifications.
-   - Atention: the HTML files are not updated Over-the-Air in this mode, this functionality still has to be implemented.
+   - **Atention**: the HTML files are not updated Over-the-Air in this mode, this functionality still has to be implemented.
 
 To define which method to use, the user must modify the `web_server.h` file and set only one of the defines to 1. For example:
 
