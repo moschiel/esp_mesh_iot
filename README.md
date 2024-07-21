@@ -1,12 +1,13 @@
 
-# ESP32 Mesh Network for Local Indoor
+# ESP32 Mesh Control
 
 ![image](https://github.com/user-attachments/assets/7563f7af-70f5-4488-895f-fd678e61d1da)
 
-This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices for local indoor use. It does not rely on an internet connection, but the user needs a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it. All interactions with the mesh network are done through a web server hosted by the main node of the mesh network, meaning that control and monitoring are limited to devices connected to the same local network.
+This project uses ESP-IDF with ESP32-DevKitV1 to create a mesh network of multiple ESP32 devices for local indoor use. It does not rely on an internet connection, but the user needs a device (like a smartphone or computer) connected to the same WiFi router as the mesh network to monitor and control it. All interactions with the mesh network are done through a http server hosted by the root node of the mesh network, meaning that control and monitoring are limited to devices connected to the same local network.
 
-One of the main challenges of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
+One of the challenges of this project was developing the OTA functionality in the mesh network using only the official ESP-IDF from Espressif. Unlike higher-level frameworks like painlessMesh (Arduino) or ESP-MDF (Espressif), this project is focused on developers who prefer or need to use ESP-IDF exclusively.
 
+In the future, there are plans to implement remote control capabilities over the internet.
 
 ## Main Features
 
@@ -135,22 +136,27 @@ To define which method to use, the user must modify the `web_server.h` file and 
 ## Configuration Tutorial
 
 1. **Prerequisites**:
-   - At least two ESP32-DevKitV1 (One is going to be the root node, add others to grow the mesh network)
+   - At least two ESP32-DevKitV1 (One will be the root node; add more ESP32 devices to grow the mesh network)
    - Configured ESP-IDF development environment
-   - Python installed (for the OTA update server)
+   - Python installed (for running a server that will host a .bin file for the OTA update)
 
 2. **Initial Configuration**:
-   - Connect the ESP32 and flash the esp-idf project. The ESP32 will start in AP mode if no saved credentials are found.
+   - Connect the ESP32 and flash the ESP-IDF project onto the target. The ESP32 will start in AP mode if no saved credentials are found.
    - Connect to the ESP32 WiFi using the SSID in the format "ESP32_Config_XXYYZZ" and the password `esp32config`.
    - Use a browser to access the default IP address (`192.168.4.1`).
-   - Insert the credentials used in your WiFi router, and set any mesh network credentials on the configuration page.
-   - Press `Update Config` to save the configurations, the ESP32 will restart and attempt to connect to the mesh network.
-     
+   - Enter the credentials used in your WiFi router and set the mesh network credentials on the configuration page.
+   - Press `Update Config` to save the configurations. The ESP32 will restart and attempt to connect to the mesh network.
+   - If everything goes well, the device will start blinking very fast (searching for the WiFi router), then the LED will turn on continuously. Otherwise, something was configured incorrectly, and you will need to manually switch back to AP mode.
+   - Repeat this process for every ESP32 that should connect to the mesh network. It is important to set the same configuration on every device (unless you want to set up more than one mesh network).
+
      ![image](https://github.com/user-attachments/assets/f24c81cd-8c1c-4598-9c9e-daa3d48353e4)
 
-
-3. **Connecting to the Mesh Network**:
-   - Access the static IP address configured for the ESP32 to view the configuration and update options.
+3. **Access to Mesh Network**:
+   - If the LED is on continuously (not blinking), it is in Mesh mode.
+   - Using a device connected to the same WiFi router as the mesh network, open a browser and access the static IP address configured for the ESP32 to view the configuration and update options.
+   - If there are multiple devices connected, it is possible to visualize a list of all nodes on the network.
+   - Click on 'Refresh' to update the list of connected nodes.
+   - Click on 'Open Tree View' to view the mesh network topology in tree format.
 
 4. **OTA Update**:
    - Run a local web server on your computer to host the .bin firmware file.
@@ -158,9 +164,8 @@ To define which method to use, the user must modify the `web_server.h` file and 
      python -m http.server 8000
      ```
    - Access the OTA update page through the ESP32 web server and provide the firmware URL.
+``` &#8203;:citation[oaicite:0]{index=0}&#8203;
 
-5. **Viewing the Mesh Network**:
-   - Access `mesh_graph.html` to view the mesh network topology in tree format.
 
 
 ## Building and Flashing the Project
