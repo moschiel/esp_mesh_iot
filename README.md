@@ -157,7 +157,12 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - Using a device connected to the same WiFi router as the mesh network, open a browser and access the static IP address configured for the ESP32 to view the configuration and update options.
    - If you update the configs here, the configurations will be broadcasted to all devices in the mesh network.
    - If there are multiple devices connected, it is possible to visualize a list of all nodes on the network.
-   - Click on 'Refresh' to update the list of connected nodes.
+   - Click on 'Refresh' button to update the list of connected nodes.
+
+![image](https://github.com/user-attachments/assets/23e154c8-603c-4567-b564-df4eae716113)
+
+
+3. **Access to Mesh Tree View**:
    - Click on 'Open Tree View' to view the mesh network topology in tree format.
 
 4. **OTA Update**:
