@@ -159,7 +159,8 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - If there are multiple devices connected, it is possible to visualize a list of all nodes on the network.
    - Click on 'Refresh' button to update the list of connected nodes.
 
-      ![image](https://github.com/user-attachments/assets/23e154c8-603c-4567-b564-df4eae716113)
+      ![image](https://github.com/user-attachments/assets/ea7d4d4a-de41-43e4-9b7f-9f1c9605b5fe)
+
 
 
 3. **Access to Mesh Tree View**:
