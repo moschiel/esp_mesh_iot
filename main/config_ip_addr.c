@@ -25,7 +25,7 @@ static esp_err_t set_dns_server(esp_netif_t *netif, uint32_t addr, esp_netif_dns
 
 void set_static_ip(esp_netif_t *netif)
 {
-    ESP_LOGI(TAG, "Configurando IP Estatico");
+    ESP_LOGI(TAG, "Setting static IP address");
 
     // Get IP address config
     char router_ip[IP_ADDR_LEN] = {0};

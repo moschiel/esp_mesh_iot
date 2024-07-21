@@ -57,7 +57,7 @@ esp_err_t nvs_get_wifi_credentials(char *ssid, size_t ssid_len, char *password, 
     nvs_close(nvs_handle);
 
     if(err != ESP_OK) {
-        ESP_LOGE(TAG, "Falha ao obter credenciais do roteador WiFi");
+        ESP_LOGE(TAG, "Failed to get WiFi router credentials");
     }
     return err;
 }
@@ -105,7 +105,7 @@ esp_err_t nvs_get_mesh_credentials(uint8_t *mesh_id, char *mesh_password, size_t
         strncpy(mesh_password, DEFAULT_MESH_PASSWORD, mesh_password_len);
         mesh_password[mesh_password_len - 1] = '\0'; // Garante terminação nula
 
-        ESP_LOGE(TAG, "Falha ao obter credenciais da rede Mesh, usando valores padrao");
+        ESP_LOGE(TAG, "Failed to get Mesh credentials, using default values");
     }
 
     return err;
@@ -121,11 +121,11 @@ void nvs_set_app_mode(APP_MODE_t mode) {
     nvs_commit(nvs_handle);
     nvs_close(nvs_handle);
     
-    ESP_LOGI(TAG, "Solicitado troca do modo da aplicacao para \"%s\"", 
+    ESP_LOGI(TAG, "Requested change of app mode to \"%s\"", 
         mode == APP_MODE_WIFI_MESH_NETWORK ? "MESH_NETWORK" : 
         mode == APP_MODE_WIFI_AP_WEBSERVER ? "AP+WEBSERVER" : "UNKNOWN");
 
-    ESP_LOGI(TAG, "Reiniciando ...");
+    ESP_LOGI(TAG, "Restarting ...");
     vTaskDelay(pdMS_TO_TICKS(1000));
     esp_restart();
     
@@ -166,7 +166,7 @@ esp_err_t nvs_get_ota_fw_url(char *fw_url, size_t max_url_len) {
     nvs_close(nvs_handle);
 
     if(err != ESP_OK) {
-        ESP_LOGE(TAG, "Falha ao obter fw url");
+        ESP_LOGE(TAG, "Failed to get fw url");
     }
     return err;
 }
@@ -210,7 +210,7 @@ esp_err_t nvs_get_ip_config(char *gateway_ip, char *root_node_ip, char *netmask)
     nvs_close(nvs_handle);
 
     if(err != ESP_OK) {
-        ESP_LOGE(TAG, "Falha ao obter configuração de endereço IP");
+        ESP_LOGE(TAG, "Failed to get static IP configurations");
     }
     return err;
 }

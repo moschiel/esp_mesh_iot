@@ -138,7 +138,7 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
     size_t buf_len = req->content_len + 1;
     char *buf = (char *)malloc(buf_len);
     if (buf == NULL) {
-        ESP_LOGE(TAG, "Falha ao alocar memória para o buffer");
+        ESP_LOGE(TAG, "set_wifi_post_handler: Failed to allocate memory");
         return ESP_FAIL;
     }
 
@@ -353,10 +353,10 @@ static void register_uris(void) {
 
 // Inicia o servidor web
 void start_webserver(bool init_wifi_ap) { 
-    ESP_LOGI(TAG, "Iniciando WebServer");
+    ESP_LOGI(TAG, "Starting WebServer");
 
     if(is_webserver_active()) {
-        ESP_LOGW(TAG, "WebServer ja tinha sido iniciado");
+        ESP_LOGW(TAG, "WebServer was started already");
         return;
     }
 
@@ -373,13 +373,13 @@ void start_webserver(bool init_wifi_ap) {
 
     if (httpd_start(&webserver_handle, &config) == ESP_OK) {
         register_uris();
-        ESP_LOGI(TAG, "WebServer Iniciado com sucesso.");
+        ESP_LOGI(TAG, "WebServer init success.");
 #if USE_HTML_FROM_SPIFFS
         // Inicialize o SPIFFS, onde fica armazenado os arquivos HTML
         init_spiffs();
 #endif
     } else {
-        ESP_LOGE(TAG, "WebServer falhou.");
+        ESP_LOGE(TAG, "WebServer failed.");
         webserver_handle = NULL;
     }
 }
@@ -389,7 +389,7 @@ void stop_webserver() {
     if (is_webserver_active()) {
         httpd_stop(webserver_handle);
         webserver_handle = NULL;
-        ESP_LOGW(TAG, "WebServer foi parado.");
+        ESP_LOGW(TAG, "WebServer was stopped.");
     }
 }
 
@@ -399,7 +399,7 @@ bool is_webserver_active(void) {
 
 // Inicialização do Wi-Fi em modo ponto de acesso (AP)
 static void wifi_init_softap(void) {
-    ESP_LOGI(TAG, "Iniciando WiFi como Ponto de Acesso");
+    ESP_LOGI(TAG, "Initializing WiFi as Access Point");
 
     // Inicializa o armazenamento não volátil (NVS)
     // nvs_flash_init();

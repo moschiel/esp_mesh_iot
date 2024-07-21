@@ -19,6 +19,7 @@
 #define LED_PIN 2
 // Pino do Botao para trocar o modo da aplicacao
 #define BUTTON_WIFI_MODE_PIN 5
+#define BUTTON_ERASE_NVS_PIN 23
 #define HOLD_TIME_MS 5000
 
 static const char *TAG = "MAIN_APP";
@@ -53,12 +54,13 @@ static void blink_led_task(void *arg) {
 
 // Tarefa para verificar botoes
 static void check_buttons_task(void *arg) {
-    static uint32_t press_start_time = 0;
+    uint32_t press_start_time = 0;
+    uint8_t pressed_button_id = 0;
 
     while (true) {		
 
         //Verifica botao para trocar o modo do wifi entre ponto de acesso (AP) e estação (STA)
-        if (gpio_get_level(BUTTON_WIFI_MODE_PIN) == 0) { //se pressionado
+        if (gpio_get_level(BUTTON_WIFI_MODE_PIN) == 0 || gpio_get_level(BUTTON_ERASE_NVS_PIN) == 0) { //se pressionado
             if(press_hold_timeout == false) {
                 if (press_start_time == 0) {
                     press_start_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -66,20 +68,36 @@ static void check_buttons_task(void *arg) {
                     //Ja segurou o botao por tempo suficiente,
                     //a task blink_led_task vai fazer o led piscar 10x por segundo, indicando que ja podemos soltar o botao.
                     press_hold_timeout = true;
+                    if(gpio_get_level(BUTTON_WIFI_MODE_PIN) == 0)
+                        pressed_button_id = BUTTON_WIFI_MODE_PIN;
+                    else 
+                        pressed_button_id = BUTTON_ERASE_NVS_PIN;
                 }
             }
         } else {
             press_start_time = 0;
 
             if(press_hold_timeout) {
-                //Solicitado troca do modo WiFi
                 press_hold_timeout = false;
-                if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEBSERVER)
-                    nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
-                else 
+                if(pressed_button_id == BUTTON_WIFI_MODE_PIN) 
+                {
+                    //Solicitado troca do modo WiFi
+                    if(nvs_get_app_mode() == APP_MODE_WIFI_AP_WEBSERVER)
+                        nvs_set_app_mode(APP_MODE_WIFI_MESH_NETWORK);
+                    else 
+                        nvs_set_app_mode(APP_MODE_WIFI_AP_WEBSERVER);
+                } 
+                else if(pressed_button_id == BUTTON_ERASE_NVS_PIN) 
+                {
+                    // solicitado pra apagar a memoria, volta para o modo AP
+                    ESP_LOGW(TAG, "Erasing NVS");
+                    nvs_flash_erase();
+                    nvs_flash_init();
                     nvs_set_app_mode(APP_MODE_WIFI_AP_WEBSERVER);
-                
+                }
             }
+
+            pressed_button_id = 0;
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -94,6 +112,10 @@ void init_IOs() {
     gpio_set_direction(BUTTON_WIFI_MODE_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(BUTTON_WIFI_MODE_PIN, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(BUTTON_WIFI_MODE_PIN, GPIO_INTR_ANYEDGE);
+
+    gpio_set_direction(BUTTON_ERASE_NVS_PIN, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(BUTTON_ERASE_NVS_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(BUTTON_ERASE_NVS_PIN, GPIO_INTR_ANYEDGE);
 }
 
 // Função principal do aplicativo
@@ -129,7 +151,7 @@ void app_main(void) {
             esp_err_t err = nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
             if(err != ESP_OK)
             {
-                ESP_LOGE(TAG, "retornando ao modo AP+WEBSERVER");
+                ESP_LOGE(TAG, "returning to mode AP+WEBSERVER");
                 nvs_set_app_mode(APP_MODE_WIFI_AP_WEBSERVER);
                 return;
             }
