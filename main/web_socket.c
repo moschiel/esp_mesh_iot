@@ -59,7 +59,7 @@ void add_ws_msg_to_tx_queue(char *msg)
         for (size_t i=0; i < clients; ++i) {
             int sock = client_fds[i];
             if (httpd_ws_get_fd_info(webserver_handle, sock) == HTTPD_WS_CLIENT_WEBSOCKET) {
-                ESP_LOGI(TAG, "Active client (fd=%d) -> sending async message", sock);
+                // ESP_LOGI(TAG, "Active client (fd=%d) -> sending async message", sock);
                 struct async_resp_arg *resp_arg = malloc(sizeof(struct async_resp_arg));
                 resp_arg->msg = malloc(strlen(msg) + 1);
                 resp_arg->hd = webserver_handle;

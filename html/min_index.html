@@ -99,7 +99,6 @@
  .catch(error => console.error('Error fetching data:',error));
 }
  function applyConfigs(data){
- document.getElementById('device_mac_addr').value = data.device_mac_addr;
  document.getElementById('router_ssid').value = data.router_ssid;
  document.getElementById('router_password').value = data.router_password;
  document.getElementById('mesh_id').value = data.mesh_id;
@@ -200,10 +199,6 @@
 <body>
 <br />
 <p>v1.9</p>
-<div class="container">
-<h2>Device Info</h2>
-<p >Root MAC address:<span id="device_mac_addr">08:d1:f9:dd:80:9c</span></p>
-</div>
 <br />
 <div class="container">
 <form onsubmit="submitConfigForm(event)">
@@ -224,11 +219,11 @@
 <br /><br />
 <h2>Configure IP Address</h2>
 <label for="router_ip">Gateway Address (Router IP):</label><br />
-<input type="text" id="router_ip" name="router_ip" oninput="formatIP(this)" required /><br />
+<input type="text" id="router_ip" name="router_ip" oninput="formatIP(this)" /><br />
 <label for="root_ip">Root Node Static IP:</label><br />
-<input type="text" id="root_ip" name="root_ip" oninput="formatIP(this)" required /><br />
+<input type="text" id="root_ip" name="root_ip" oninput="formatIP(this)" /><br />
 <label for="netmask">Netmask:</label><br />
-<input type="text" id="netmask" name="netmask" oninput="formatIP(this)" required /><br />
+<input type="text" id="netmask" name="netmask" oninput="formatIP(this)" /><br />
 </div>
 <br />
 <input type="submit" value="Update Config" />

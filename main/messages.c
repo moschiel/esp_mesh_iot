@@ -27,7 +27,7 @@
 #include "messages.h"
 
 static const char* TAG = "MESSAGES";
-
+extern int32_t requested_retry_offset;
 
 void mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver) {
     // Buffer para armazenar as strings dos endereços MAC
@@ -42,7 +42,7 @@ void mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], ui
     cJSON *root = cJSON_CreateObject();
 
     // Adiciona os campos ao JSON
-    cJSON_AddNumberToObject(root, "msg_id", JSON_MSG_NODE_CONNECTED);
+    cJSON_AddNumberToObject(root, "msg_id", JSON_MSG_NODE_STATUS);
     cJSON_AddStringToObject(root, "node_addr", node_addr_str);
     cJSON_AddStringToObject(root, "parent_addr", parent_addr_str);
     cJSON_AddNumberToObject(root, "layer", layer);
@@ -137,6 +137,57 @@ bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool is
     return true;
 }
 
+void send_msg_ota_offset_err(uint32_t expected, uint32_t received) {
+
+    // Cria o objeto JSON
+    cJSON *root = cJSON_CreateObject();
+
+    // Adiciona os campos ao JSON
+    cJSON_AddNumberToObject(root, "msg_id", JSON_MSG_OTA_OFFSET_ERR);
+    cJSON_AddNumberToObject(root, "expected", expected);
+    cJSON_AddNumberToObject(root, "received", received);
+
+    // Converte o objeto JSON para string e salva no buffer
+    char buf[100] = {0};
+    cJSON_PrintPreallocated(root, buf, sizeof(buf), false);
+
+    // Libera a memória usada pelo objeto JSON
+    cJSON_Delete(root);
+
+    mesh_data_t mesh_data;
+    mesh_data.data = (uint8_t*)buf;
+    mesh_data.tos = MESH_TOS_P2P;
+    mesh_data.proto = MESH_PROTO_JSON;
+    mesh_data.size = strlen(buf) + 1;
+
+    esp_mesh_send(
+        NULL,       // mesh_addr_t *to, (use NULL to send to root node)
+        &mesh_data, // mesh_data_t *data           
+        0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+        NULL,       // mesh_opt_t opt[]
+        0           // int opt_count
+    );
+}
+
+bool process_msg_ota_offset_err(cJSON *root) {
+    if (root == NULL) {
+        return false;
+    }
+
+    // Extrai os campos do JSON
+    cJSON *expected_json = cJSON_GetObjectItem(root, "expected");
+    cJSON *received_json = cJSON_GetObjectItem(root, "received");
+
+    if (expected_json && cJSON_IsNumber(expected_json) &&
+        received_json && cJSON_IsNumber(received_json))  {
+        
+        requested_retry_offset = expected_json->valueint;
+        return true;  // Retorna true se tudo estiver correto
+    }
+
+    return false;  // Retorna false se houver algum erro nos campos do JSON
+}
+
 void process_msg_firmware_packet(firmware_packet_t *packet) {
     static esp_partition_t *ota_partition = NULL; 
     static esp_ota_handle_t ota_handle;
@@ -167,8 +218,11 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
 
     if(expectedOffset != packet->offset) {
         err = ESP_FAIL;
-        ESP_LOGE(TAG, "Received offset != expected offset");
-        goto process_fw_packet_end; 
+        ESP_LOGE(TAG, "Received offset %lu, expected offset %lu", packet->offset, expectedOffset);
+        // goto process_fw_packet_end; 
+
+        send_msg_ota_offset_err(expectedOffset, packet->offset); 
+        return;       
     }
 
     expectedOffset = packet->offset + packet->data_size;
@@ -183,9 +237,9 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
     // Calcula e registra o progresso
     static uint8_t lastPercent = 0;
     uint8_t percent = (uint8_t)(((float)(packet->offset + packet->data_size)  / (float)packet->total_size)*100.0);
-    if(abs(percent - lastPercent) >= 1) { //atualiza a cada 1%
+    if((percent - lastPercent) >= 1) { //atualiza a cada 1%
         lastPercent = percent;
-        ESP_LOGI(TAG, "OTA progress: %u bytes ( %u%% )", (unsigned int)(packet->offset + packet->data_size), percent);
+        ESP_LOGI(TAG, "OTA progress: %lu bytes ( %u%% )", (packet->offset + packet->data_size), percent);
     }
 
     // Se é o último pacote, finalizar a OTA
@@ -212,7 +266,7 @@ process_fw_packet_end:
         ota_partition = NULL;
 
         ESP_LOGE(TAG, "OTA failed, update aborted...");
-        ESP_LOGE(TAG, "fw packet, version: %s, offset: %u, size: %u, totalSize: %u",
-            packet->version, (unsigned int)packet->offset, (unsigned int)packet->data_size, (unsigned int)packet->total_size);
+        ESP_LOGE(TAG, "fw packet, version: %s, offset: %lu, size: %lu, totalSize: %lu",
+            packet->version, packet->offset, packet->data_size, packet->total_size);
     }
 }

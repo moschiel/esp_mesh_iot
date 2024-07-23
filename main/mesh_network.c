@@ -89,7 +89,7 @@ void mesh_p2p_tx_task(void *arg)
 
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "'esp_mesh_send' fail, msg_id:%i, heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
-                    JSON_MSG_NODE_CONNECTED, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
+                    JSON_MSG_NODE_STATUS, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
             }
         }
 
@@ -149,21 +149,29 @@ void mesh_p2p_rx_task(void *arg)
             if(msg_id_json && cJSON_IsNumber(msg_id_json)) {
                 switch (msg_id_json->valueint)
                 {
-                case JSON_MSG_NODE_CONNECTED:
+                case JSON_MSG_NODE_STATUS:
                     if(esp_mesh_is_root()) {
                         if(!process_msg_node_status(root)) {
                             process_fail = true;
                         }
                     }    
-                    break;
+                break;
+                
+                case JSON_MSG_OTA_OFFSET_ERR:
+                    if(esp_mesh_is_root()) {
+                        if(!process_msg_ota_offset_err(root)) {
+                            process_fail = true;
+                        }
+                    }
+                break;
                 
                 default:
-                    break;
+                break;
                 }    
             }
 
             if(process_fail) {
-                 ESP_LOGE(TAG, "Fail to parse json msg id: %i", JSON_MSG_NODE_CONNECTED);
+                 ESP_LOGE(TAG, "Fail to parse json msg id: %i", JSON_MSG_NODE_STATUS);
             }
 
             // Libera a memória usada pelo objeto JSON
@@ -481,7 +489,6 @@ void start_mesh(char* router_ssid, char* router_password, uint8_t mesh_id[6], ch
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
     ESP_ERROR_CHECK(esp_wifi_start());
-    initialise_mdns();
 
     /*  mesh initialization */
     ESP_ERROR_CHECK(esp_mesh_init());

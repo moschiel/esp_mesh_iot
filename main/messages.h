@@ -5,7 +5,8 @@
 #include "cJSON.h"
 
 typedef enum {
-    JSON_MSG_NODE_CONNECTED = 1,
+    JSON_MSG_NODE_STATUS = 1,
+    JSON_MSG_OTA_OFFSET_ERR = 2,
 } JSON_MSG_ID_t;
 
 typedef enum {
@@ -27,5 +28,6 @@ bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool is
 bool process_msg_node_status(cJSON *root);
 bool process_msg_fw_update_request(char* payload);
 void process_msg_firmware_packet(firmware_packet_t *packet);
+bool process_msg_ota_offset_err(cJSON *root);
 
 #endif /* MAIN_MESSAGES_H_ */

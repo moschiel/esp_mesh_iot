@@ -371,6 +371,8 @@ void start_webserver(bool init_wifi_ap) {
     if(init_wifi_ap) {
         wifi_init_softap();
     }
+
+    initialise_mdns();
     
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     //config.max_uri_handlers = 8;  // Ajusta o número máximo de manipuladores de URI
@@ -442,8 +444,6 @@ static void wifi_init_softap(void) {
     esp_wifi_set_mode(WIFI_MODE_AP);
     esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config);
     esp_wifi_start();
-
-    initialise_mdns();
 }
 
 #if USE_HTML_FROM_SPIFFS

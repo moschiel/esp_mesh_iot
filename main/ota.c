@@ -24,7 +24,7 @@
 
 #define VERSION_CHECK 0
 #define DATE_TIME_CHECK 0 //por alguma razao, a data de compilacao apenas muda se der 'clean' antes do 'build', nao vale a pena pois demora demais o build
-#define FW_PKGS_DELAY 50 //ms
+#define FW_PKGS_DELAY 100 //ms
 
 // Certificado do servidor, se necessário
 extern const uint8_t server_cert_pem_start[] asm("_binary_server_cert_pem_start");
@@ -33,6 +33,8 @@ static const char *TAG = "OTA_MESH";
 static bool ota_running = false;
 static char ota_url[128];
 static const mesh_addr_t mesh_broadcast_addr = {.addr = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
+
+int32_t requested_retry_offset = -1;
 
 typedef struct {
     esp_app_desc_t appDesc;
@@ -93,19 +95,26 @@ fw_packet_retry:
             break;
         }
 
-        packet.offset += packet.data_size;
+        uint32_t total_sent_size = packet.offset + packet.data_size;
 
         // Calcula e registra o progresso
         static uint8_t lastPercent = 0;
-        uint8_t percent = (uint8_t)(((float)packet.offset  / (float)packet.total_size)*100.0);
-        if(percent - lastPercent >= 1) { //atualiza a cada 1%
+        uint8_t percent = (uint8_t)(((float)total_sent_size  / (float)packet.total_size)*100.0);
+        if((percent - lastPercent) >= 1) { //atualiza a cada 1%
             lastPercent = percent;
-            ESP_LOGD(TAG, "Updating CHILD nodes: %u bytes ( %u%% )", (unsigned int)packet.offset, percent);
+            ESP_LOGI(TAG, "Updating CHILD nodes: total_sent: %lu bytes ( %u%% )", total_sent_size, percent);
             send_ws_ota_status("Updating CHILD nodes", false, false, percent);
         }
         
+        packet.offset = total_sent_size;
 
         vTaskDelay(pdMS_TO_TICKS(FW_PKGS_DELAY));
+
+        if(requested_retry_offset != -1) {
+            ESP_LOGW(TAG, "REQUESTED RETRY OFFSET: %li", requested_retry_offset);
+            packet.offset = requested_retry_offset;
+            requested_retry_offset = -1;
+        }
     }
 
     if(err == ESP_OK) {
