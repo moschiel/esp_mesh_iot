@@ -30,7 +30,7 @@ In the future, there are plans to implement remote control capabilities over the
 2. **Connection to Mesh Network**:
    - After the initial configuration, the ESP32 restarts and attempts to connect to the mesh network using the provided credentials.
    - In Mesh mode, the ESP32 that is the main node of the mesh network hosts a web server.
-   - The root node can be accessed with browser at address the address `http://espmesh.local/` if connected to the same WiFi router as the ESP.
+   - The root node can be accessed with a browser at address `http://espmesh.local/` if connected to the same WiFi router as the ESP.
    <!-- The root node can be accessed with browser if connected to the same WiFi router as the ESP, using the static IP configured. -->
 
 3. **Web Server**:
