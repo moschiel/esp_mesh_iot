@@ -110,7 +110,7 @@ fw_packet_retry:
 
     if(err == ESP_OK) {
         ESP_LOGI(TAG, "Firmware distribution complete");
-        send_ws_ota_status("Update complete", true, false, 100);
+        send_ws_ota_status("Update CHILD nodes COMPLETE", true, false, 100);
     } else {
         send_ws_ota_status("Update CHILD nodes FAILED...", true, true, 0);
     }
@@ -220,8 +220,8 @@ ota_end:
         ESP_LOGI(TAG, "Updating ROOT node Failed...");
         send_ws_ota_status("Updating ROOT node Failed...", true, true, 0);
     } else {
-        ESP_LOGI(TAG, "ROOT node updated");
-        send_ws_ota_status("ROOT node updated", false, false, 100);
+        ESP_LOGI(TAG, "ROOT node update COMPLETE");
+        send_ws_ota_status("ROOT node update COMPLETE", false, false, 100);
     }
 
     return err;
@@ -244,8 +244,10 @@ static void ota_task(void *arg) {
 
     if (esp_https_ota_custom(&ota_config, &ota_fw_info) == ESP_OK) 
     {
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        distribute_firmware_to_children(&ota_fw_info);
+        if(esp_mesh_get_routing_table_size() > 1) {
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            distribute_firmware_to_children(&ota_fw_info);
+        }
         ESP_LOGI(TAG, "Restarting...");
         vTaskDelay(pdMS_TO_TICKS(2000));
         esp_restart();

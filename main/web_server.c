@@ -17,6 +17,7 @@
 #include "ota.h"
 #include "messages.h"
 #include "html_macros.h"
+#include "config_ip_addr.h"
 
 #if USE_HTML_FROM_EMBED_TXTFILES
 #if USE_MIN_HTML
@@ -85,16 +86,18 @@ static esp_err_t root_get_configs_handler(httpd_req_t *req) {
     char router_password[MAX_PASS_LEN] = {0};
     nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
 
-    // Get IP address config
-    char router_ip[IP_ADDR_LEN] = {0};
-    char root_node_ip[IP_ADDR_LEN] = {0};
-    char netmask[IP_ADDR_LEN] = {0};
-    nvs_get_ip_config(router_ip, root_node_ip, netmask);
-
     // Obtem as credenciais da rede mesh da NVS
     uint8_t mesh_id[6];
     char mesh_password[MAX_PASS_LEN] = {0};
     nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
+
+    // Get IP address config
+    char router_ip[IP_ADDR_LEN] = {0};
+    char root_node_ip[IP_ADDR_LEN] = {0};
+    char netmask[IP_ADDR_LEN] = {0};
+    #if ENABLE_CONFIG_STATIC_IP
+    nvs_get_ip_config(router_ip, root_node_ip, netmask);
+    #endif
 
     //Obtem ultimo fw url
     char fw_url[100] = {0};
@@ -106,22 +109,22 @@ static esp_err_t root_get_configs_handler(httpd_req_t *req) {
             "\"device_mac_addr\":\""MACSTR"\","
             "\"router_ssid\":\"%s\","
             "\"router_password\":\"%s\","
+            "\"mesh_id\":\""MESHSTR"\"," 
+            "\"mesh_password\":\"%s\","
             "\"router_ip\":\"%s\","
             "\"root_ip\":\"%s\","
             "\"netmask\":\"%s\","
-            "\"mesh_id\":\""MESHSTR"\"," 
-            "\"mesh_password\":\"%s\","
             "\"is_connected\":%s,"
             "\"fw_url\":\"%s\""
         "}",
         MAC2STR(STA_MAC_address),
         router_ssid,
         router_password,
+        MESH2STR(mesh_id),
+        mesh_password,
         router_ip,
         root_node_ip,
         netmask,
-        MESH2STR(mesh_id),
-        mesh_password,
         is_mesh_parent_connected()? "true":"false",
         fw_url
     );
@@ -169,18 +172,23 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
     char netmask[IP_ADDR_LEN] = {0};
     char mesh_id_str[6*3] = {0};  // Buffer para a string do mesh_id no formato MAC
     char mesh_password[MAX_PASS_LEN] = {0};
-    sscanf(buf, "router_ssid=%[^&]&router_password=%[^&]&router_ip=%[^&]&root_ip=%[^&]&netmask=%[^&]&mesh_id=%[^&]&mesh_password=%s", 
-        router_ssid, router_password, router_ip, root_node_ip, netmask, mesh_id_str, mesh_password);
+    sscanf(buf, "router_ssid=%[^&]&router_password=%[^&]&mesh_id=%[^&]&mesh_password=%[^&]&router_ip=%[^&]&root_ip=%[^&]&netmask=%s", 
+        router_ssid, router_password, mesh_id_str, mesh_password, router_ip, root_node_ip, netmask);
 
-    if (strlen(router_ssid) > 0 && strlen(router_password) > 0 &&
-        strlen(router_ip) > 0 && strlen(root_node_ip) > 0 && strlen(netmask) > 0 &&
-        strlen(mesh_id_str) > 0 && strlen(mesh_password) > 0) {
+    if (strlen(router_ssid) > 0 && strlen(router_password) > 0 
+        && strlen(mesh_id_str) > 0 && strlen(mesh_password) > 0
+        #if ENABLE_CONFIG_STATIC_IP
+        && strlen(router_ip) > 0 && strlen(root_node_ip) > 0 && strlen(netmask) > 0
+        #endif
+        ) {
         uint8_t mesh_id[6] = {0};
         mac_str_to_bytes(mesh_id_str, mesh_id);
 
         nvs_set_wifi_credentials(router_ssid, router_password);
-        nvs_set_ip_config(router_ip, root_node_ip, netmask);
         nvs_set_mesh_credentials(mesh_id, mesh_password);
+        #if ENABLE_CONFIG_STATIC_IP
+        nvs_set_ip_config(router_ip, root_node_ip, netmask);
+        #endif
 
         // Send HTTP response with 200 OK
         httpd_resp_set_status(req, "200 OK");
@@ -434,6 +442,8 @@ static void wifi_init_softap(void) {
     esp_wifi_set_mode(WIFI_MODE_AP);
     esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config);
     esp_wifi_start();
+
+    initialise_mdns();
 }
 
 #if USE_HTML_FROM_SPIFFS

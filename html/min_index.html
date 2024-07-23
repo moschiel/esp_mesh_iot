@@ -61,6 +61,9 @@
  }
  table { border-collapse: collapse; width: 100%; }
  table, th, td { border:1px solid black; }
+ #ip-addr-config {
+ display: none;
+ }
 </style>
 <script>let ws;
  function formatIP(input){
@@ -99,11 +102,11 @@
  document.getElementById('device_mac_addr').value = data.device_mac_addr;
  document.getElementById('router_ssid').value = data.router_ssid;
  document.getElementById('router_password').value = data.router_password;
+ document.getElementById('mesh_id').value = data.mesh_id;
+ document.getElementById('mesh_password').value = data.mesh_password;
  document.getElementById('router_ip').value = data.router_ip;
  document.getElementById('root_ip').value = data.root_ip;
  document.getElementById('netmask').value = data.netmask;
- document.getElementById('mesh_id').value = data.mesh_id;
- document.getElementById('mesh_password').value = data.mesh_password;
  document.getElementById('firmware_url').value = data.fw_url;
 }
  function fetchJsonMeshList(){
@@ -204,12 +207,20 @@
 <br />
 <div class="container">
 <form onsubmit="submitConfigForm(event)">
-<h2>Configure WiFi Router Credentials</h2>
+<h2>Configure WiFi Router</h2>
 <label for="router_ssid">Router SSID:</label><br />
 <input type="text" id="router_ssid" name="router_ssid" required /><br />
 <label for="router_password">Router Password:</label><br />
 <input type="password" id="router_password" name="router_password" required /><br />
 <input type="checkbox" onclick='togglePassword("router_password")' />Show Password<br />
+<br /><br />
+<h2>Configure Mesh Network</h2>
+<label for="mesh_id">Mesh ID:</label><br />
+<input type="text" id="mesh_id" name="mesh_id" required oninput="formatMeshID(event)" maxlength="17" /><br />
+<label for="mesh_password">Mesh Password:</label><br />
+<input type="password" id="mesh_password" name="mesh_password" required /><br />
+<input type="checkbox" onclick='togglePassword("mesh_password")' />Show Password<br />
+<div id="ip-addr-config">
 <br /><br />
 <h2>Configure IP Address</h2>
 <label for="router_ip">Gateway Address (Router IP):</label><br />
@@ -218,13 +229,7 @@
 <input type="text" id="root_ip" name="root_ip" oninput="formatIP(this)" required /><br />
 <label for="netmask">Netmask:</label><br />
 <input type="text" id="netmask" name="netmask" oninput="formatIP(this)" required /><br />
-<br /><br />
-<h2>Configure Mesh Network</h2>
-<label for="mesh_id">Mesh ID:</label><br />
-<input type="text" id="mesh_id" name="mesh_id" required oninput="formatMeshID(event)" maxlength="17" /><br />
-<label for="mesh_password">Mesh Password:</label><br />
-<input type="password" id="mesh_password" name="mesh_password" required /><br />
-<input type="checkbox" onclick='togglePassword("mesh_password")' />Show Password<br />
+</div>
 <br />
 <input type="submit" value="Update Config" />
 <p id="status_config"></p>

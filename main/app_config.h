@@ -14,6 +14,10 @@
 #define DEFAULT_MESH_ID { 0x77, 0x77, 0x77, 0x77, 0x77, 0x77 }
 #define DEFAULT_MESH_PASSWORD CONFIG_MESH_AP_PASSWD
 
+// habilita configuracao estatica de IP
+// se habilitado, no index.html deve alterar a visibilidade do elemento #ip-addr-config
+#define ENABLE_CONFIG_STATIC_IP 0
+
 typedef enum
 {
     APP_MODE_WIFI_AP_WEBSERVER,

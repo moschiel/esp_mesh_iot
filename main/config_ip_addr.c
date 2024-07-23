@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+#include "mdns.h"
 
 #include "config_ip_addr.h"
 #include "app_config.h"
@@ -54,4 +55,15 @@ void set_static_ip(esp_netif_t *netif)
     ESP_ERROR_CHECK(set_dns_server(netif, ipaddr_addr("0.0.0.0"), ESP_NETIF_DNS_BACKUP));
     
     ESP_LOGD(TAG, "Success to set static ip: %s, gw: %s, netmask: %s", root_node_ip, router_ip, netmask);
+}
+
+void initialise_mdns(void)
+{
+    // Initialize mDNS
+    ESP_ERROR_CHECK(mdns_init());
+    ESP_ERROR_CHECK(mdns_hostname_set("espmesh"));
+    ESP_ERROR_CHECK(mdns_instance_name_set("ESP Mesh Web Server"));
+
+    // Set the mDNS service
+    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
 }

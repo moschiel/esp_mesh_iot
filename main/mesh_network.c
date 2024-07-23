@@ -282,7 +282,9 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
             esp_netif_dhcpc_stop(netif_sta);
             esp_netif_dhcpc_start(netif_sta);
             
+            #if ENABLE_CONFIG_STATIC_IP
             set_static_ip(netif_sta);
+            #endif
 
             clear_node_tree();
            // start_tree_monitor();
@@ -479,6 +481,8 @@ void start_mesh(char* router_ssid, char* router_password, uint8_t mesh_id[6], ch
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
     ESP_ERROR_CHECK(esp_wifi_start());
+    initialise_mdns();
+
     /*  mesh initialization */
     ESP_ERROR_CHECK(esp_mesh_init());
     ESP_ERROR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL));
