@@ -5,17 +5,23 @@
 #include "esp_wifi.h"
 #include "sdkconfig.h"
 
-
-//wifi router credentials
+//WiFi router credentials size
 #define MAX_SSID_LEN 32  // Comprimento máximo do SSID
 #define MAX_PASS_LEN 64  // Comprimento máximo da senha
 
-//mesh credentials
+//default WiFi router credentials
+#define ALLOW_DEFAULT_WIFI_CREDENTIALS 0 // 0: do not use default, 1: use default if no credentials were configured
+#if ALLOW_DEFAULT_WIFI_CREDENTIALS
+#define DEFAULT_WIFI_SSID       "YourWiFiSSID"
+#define DEFAULT_WIFI_PASSWORD   "YourWiFiPassword"
+#endif
+
+//default MESH credentials
 #define DEFAULT_MESH_ID { 0x77, 0x77, 0x77, 0x77, 0x77, 0x77 }
-#define DEFAULT_MESH_PASSWORD CONFIG_MESH_AP_PASSWD
+#define DEFAULT_MESH_PASSWORD "MAP_PASSWD"
 
 // habilita configuracao estatica de IP
-// se habilitado, no index.html deve alterar a visibilidade do elemento #ip-addr-config
+// se habilitado, lembrar de editar o arquivo index.html/min_index.html, alterando a visibilidade do elemento #ip-addr-config de 'none' para 'block'
 #define ENABLE_CONFIG_STATIC_IP 0
 
 typedef enum
