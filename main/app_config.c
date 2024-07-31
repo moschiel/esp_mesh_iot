@@ -55,15 +55,17 @@ esp_err_t nvs_get_wifi_credentials(char *ssid, size_t ssid_len, char *password, 
         }
         nvs_close(nvs_handle);
     }
-    #if ALLOW_DEFAULT_WIFI_CREDENTIALS
     if (err != ESP_OK) {
+        #if ALLOW_DEFAULT_WIFI_CREDENTIALS
         // Define valores padrão se a leitura da NVS falhar
         strcpy(ssid, DEFAULT_WIFI_SSID);
         strcpy(password, DEFAULT_WIFI_PASSWORD);
         ESP_LOGE(TAG, "Failed to get WiFi router credentials, using default values");
         return ESP_OK;
+        #else
+        ESP_LOGE(TAG, "Failed to get WiFi router credentials");
+        #endif
     }
-    #endif
 
     return err;
 }
