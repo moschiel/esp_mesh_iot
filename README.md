@@ -190,6 +190,9 @@ To define which method to use, the user must modify the `web_server.h` file and 
      python -m http.server 8000
      ```
    - Access the OTA update page through the ESP32 web server and provide the firmware URL.
+      <p>
+        <img src="https://github.com/user-attachments/assets/d0baf17d-1b06-47c1-a24c-e77bd2726fb7" alt="OTA PROGRESS" height="300"/>
+      </p>
 
 ## Building and Flashing the Project
 
