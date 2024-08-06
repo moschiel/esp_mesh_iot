@@ -19,7 +19,9 @@
 #define LED_PIN 2
 // Pino do Botao para trocar o modo da aplicacao
 #define BUTTON_WIFI_MODE_PIN 5
+// Pino para apagar a memoria NVS
 #define BUTTON_ERASE_NVS_PIN 23
+// Tempo que o botao deve ser pressionado para acatar o comando
 #define HOLD_TIME_MS 5000
 
 static const char *TAG = "MAIN_APP";
