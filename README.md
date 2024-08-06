@@ -185,11 +185,14 @@ To define which method to use, the user must modify the `web_server.h` file and 
       </p>
 
 4. **OTA Update**:
-   - Run a local web server on your computer to host the .bin firmware file.
+   - Run a local web server in the project directory on your computer to host the .bin firmware file. For example, you can use the following Python command in the terminal:
      ```bash
      python -m http.server 8000
      ```
-   - Access the OTA update page through the ESP32 web server and provide the firmware URL.
+   - Access the OTA update page through the ESP32 web server and provide the firmware URL `http://<your_server_ip_addres>:8000/build/app-template.bin`
+      <p>
+        <img src="https://github.com/user-attachments/assets/d0baf17d-1b06-47c1-a24c-e77bd2726fb7" alt="OTA PROGRESS" height="300"/>
+      </p>
 
 ## Building and Flashing the Project
 
