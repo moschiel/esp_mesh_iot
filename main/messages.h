@@ -26,6 +26,7 @@ void mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], ui
 bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool isError, uint8_t percent);
 
 bool process_msg_node_status(cJSON *root);
+bool process_msg_set_wifi_config(cJSON *json);
 bool process_msg_fw_update_request(char* payload);
 void process_msg_firmware_packet(firmware_packet_t *packet);
 bool process_msg_ota_offset_err(cJSON *root);

@@ -161,35 +161,20 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         remaining -= ret;
     }
     buf[received] = '\0';
-
+    
     ESP_LOGI(TAG, "Received /set_wifi: %s", buf);
 
-    // Extrai SSID e senha do buffer recebido usando sscanf
-    char router_ssid[MAX_SSID_LEN] = {0};
-    char router_password[MAX_PASS_LEN] = {0};
-    char router_ip[IP_ADDR_LEN] = {0};
-    char root_node_ip[IP_ADDR_LEN] = {0};
-    char netmask[IP_ADDR_LEN] = {0};
-    char mesh_id_str[6*3] = {0};  // Buffer para a string do mesh_id no formato MAC
-    char mesh_password[MAX_PASS_LEN] = {0};
-    sscanf(buf, "router_ssid=%[^&]&router_password=%[^&]&mesh_id=%[^&]&mesh_password=%[^&]&router_ip=%[^&]&root_ip=%[^&]&netmask=%s", 
-        router_ssid, router_password, mesh_id_str, mesh_password, router_ip, root_node_ip, netmask);
+    // Parseia o JSON recebido
+    cJSON *json = cJSON_Parse(buf);
+    if (json == NULL) {
+        ESP_LOGE(TAG, "set_wifi_post_handler: JSON parsing error");
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_send(req, NULL, 0);
+        free(buf);
+        return ESP_FAIL;
+    }
 
-    if (strlen(router_ssid) > 0 && strlen(router_password) > 0 
-        && strlen(mesh_id_str) > 0 && strlen(mesh_password) > 0
-        #if ENABLE_CONFIG_STATIC_IP
-        && strlen(router_ip) > 0 && strlen(root_node_ip) > 0 && strlen(netmask) > 0
-        #endif
-        ) {
-        uint8_t mesh_id[6] = {0};
-        mac_str_to_bytes(mesh_id_str, mesh_id);
-
-        nvs_set_wifi_credentials(router_ssid, router_password);
-        nvs_set_mesh_credentials(mesh_id, mesh_password);
-        #if ENABLE_CONFIG_STATIC_IP
-        nvs_set_ip_config(router_ip, root_node_ip, netmask);
-        #endif
-
+    if(process_msg_set_wifi_config(json)) {
         // Send HTTP response with 200 OK
         httpd_resp_set_status(req, "200 OK");
         httpd_resp_send(req, NULL, 0);
@@ -203,6 +188,8 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
     }
 
     free(buf);
+    cJSON_Delete(json);
+
     return ESP_OK;
 }
 

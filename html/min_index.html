@@ -170,17 +170,17 @@
  function submitConfigForm(event){
  event.preventDefault();
  const formData = new FormData(event.target);
- const params = new URLSearchParams();
- for (const pair of formData.entries()){
- params.append(pair[0],pair[1]);
-}
+ const jsonData ={};
+ formData.forEach((value,key) =>{
+ jsonData[key] = value;
+});
  const statusConfig = document.getElementById('status_config');
  statusConfig.textContent = 'Command sent';
  fetch('/set_wifi',{
  method:'POST',
- body:params.toString(),
+ body:JSON.stringify(jsonData),
  headers:{
- 'Content-Type':'application/x-www-form-urlencoded'
+ 'Content-Type':'application/json'
 }})
  .then(response =>{
  if (response.ok){

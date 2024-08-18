@@ -93,6 +93,37 @@ bool process_msg_node_status(cJSON *root) {
     return false;  // Retorna false se houver algum erro nos campos do JSON
 }
 
+bool process_msg_set_wifi_config(cJSON *json)
+{
+    const cJSON *router_ssid = cJSON_GetObjectItem(json, "router_ssid");
+    const cJSON *router_password = cJSON_GetObjectItem(json, "router_password");
+    const cJSON *mesh_id_str = cJSON_GetObjectItem(json, "mesh_id");
+    const cJSON *mesh_password = cJSON_GetObjectItem(json, "mesh_password");
+    #if ENABLE_CONFIG_STATIC_IP
+    const cJSON *router_ip = cJSON_GetObjectItem(json, "router_ip");
+    const cJSON *root_node_ip = cJSON_GetObjectItem(json, "root_ip");
+    const cJSON *netmask = cJSON_GetObjectItem(json, "netmask");
+    #endif
+    
+    if(cJSON_IsString(router_ssid) && cJSON_IsString(router_password)) {
+        nvs_set_wifi_credentials(router_ssid->valuestring, router_password->valuestring);
+    }
+
+    if(cJSON_IsString(mesh_id_str) && cJSON_IsString(mesh_password)) {
+        uint8_t mesh_id[6] = {0};
+        mac_str_to_bytes(mesh_id_str->valuestring, mesh_id);
+        nvs_set_mesh_credentials(mesh_id, mesh_password->valuestring);
+    }
+
+    #if ENABLE_CONFIG_STATIC_IP
+    if(cJSON_IsString(router_ip) && cJSON_IsString(root_node_ip) && cJSON_IsString(netmask)) {
+        nvs_set_ip_config(router_ip->valuestring, root_node_ip->valuestring, netmask->valuestring);
+    }
+    #endif
+
+    return true;
+}
+
 bool process_msg_fw_update_request(char* payload) {
     cJSON *root = cJSON_Parse(payload);
     if (root == NULL) {

@@ -36,6 +36,8 @@
         "esp_flash_partitions.h": "c",
         "soc_caps.h": "c",
         "messages.h": "c",
-        "app_config.h": "c"
+        "app_config.h": "c",
+        "web_server.h": "c",
+        "mesh_tree.h": "c"
     }
 }
