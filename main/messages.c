@@ -227,6 +227,8 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
 
     // Se é o primeiro pacote, iniciar a OTA
     if (packet->offset == 0) {
+        expectedOffset = 0;
+        
         ota_partition = (esp_partition_t*)esp_ota_get_next_update_partition(NULL);
         if (ota_partition == NULL) {
             ESP_LOGE(TAG, "No OTA partition found");
@@ -247,7 +249,14 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
         return;
     }
 
-    if(expectedOffset != packet->offset) {
+    
+    // Se recebeu um offset menor, então deve ser retransmissao para algum nó que não tinha recebido, fazemos nada.
+    if(packet->offset < expectedOffset)
+    {
+        return;
+    }
+    else if(packet->offset > expectedOffset) // Se for maior que o esperado, perdemos dados, solicitamos o reenvio
+    {
         err = ESP_FAIL;
         ESP_LOGE(TAG, "Received offset %lu, expected offset %lu", packet->offset, expectedOffset);
         // goto process_fw_packet_end; 
