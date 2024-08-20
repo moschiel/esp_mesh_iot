@@ -42,19 +42,15 @@ In the future, there are plans to implement remote control capabilities over the
    - The user can send the firmware URL to update all nodes in the mesh network.
    - A socket is opened between the browser and the root ESP, allowing the user to monitor the update progress.
 
-5. **Manual Switching Between AP (Access Point) Mode and Mesh Mode**:
-   - It is possible to manually switch between AP and Mesh modes through a pin described in the code.
-   - An LED indicates the connection status and operation mode.
-
 ## Interpreting the LED
 
 The LED indicates the current state of the ESP32. The LED used is the default LED of the DevKit1 module:
 
-- **LED blinking very fast (~5 times per second)**: This indicates that the ESP32 is not connected and is trying to connect to the mesh network or is trying to initiate AP mode. If this state persists for too long, try changing the ESP mode manually to Access Point mode to check the configurations.
+- **LED blinking very fast (~5 times per second)**: This indicates that the ESP32 is not connected and is trying to connect to the mesh network or is trying to initiate AP mode. If this state persists for too long, try changing the ESP mode manually to Access Point mode to check the configurations, or reset to factory (See section **Troubleshooting Pins** for details)
   
    ![WhatsApp Video 2024-07-19 at 19 05 14](https://github.com/user-attachments/assets/1c8c87c1-aade-4880-aab9-e3226bf6db12)
 
-- **LED blinking rapidly (~2.5 times per second)**: This indicates that the button (pin D5) has been connected to GND and held long enough to change the ESP32 mode (AP mode / MESH mode).
+- **LED blinking rapidly (~2.5 times per second)**: This indicates that one of the troubleshotting pins has been connected to GND and held long enough to accept the command. (See section **Troubleshooting Pins** for details)
 
    ![WhatsApp Video 2024-07-19 at 18 00 28](https://github.com/user-attachments/assets/7dd2ba66-d8a0-4c68-8436-7d66273f339d)
 
@@ -154,7 +150,7 @@ To define which method to use, the user must modify the `web_server.h` file and 
    - Connect the ESP32 and flash the ESP-IDF project onto the target. The ESP32 will start in AP mode if no saved credentials are found.
    - Connect to the ESP32 WiFi using the SSID in the format "ESP32_Config_XXYYZZ" and the password `esp32config`.
    - Use a browser to access `http://espmesh.local/`.
-   <!-- Use a browser to access the default IP address (`192.168.4.1`). --> `http://espmesh.local/`
+   <!-- Use a browser to access the default IP address (`192.168.4.1`). -->
    - Enter the credentials used in your WiFi router and set the mesh network credentials on the configuration page.
    - Press `Update Config` to save the configurations. The ESP32 will restart and attempt to connect to the mesh network.
    - If everything goes well, the device will start blinking very fast (searching for the WiFi router), then the LED will turn on continuously. Otherwise, something was configured incorrectly, and you will need to manually switch back to AP mode.
@@ -196,6 +192,13 @@ To define which method to use, the user must modify the `web_server.h` file and 
         <img src="https://github.com/user-attachments/assets/d0baf17d-1b06-47c1-a24c-e77bd2726fb7" alt="OTA PROGRESS" height="300"/>
       </p>
 
+## Troubleshooting Pins
+
+1. **Manual Switch between AP/MESH modes**:
+   - Hold pin D5 to GND until the LED blinks rapidly (~2.5 times per second), then release the pin to change the ESP32 mode (AP mode / MESH mode)
+2. **Reseting to Factory**:
+   - Hold pin D23 to GND until the LED blinks rapidly (~2.5 times per second), then release the pin to reset NVS memory
+
 ## Building and Flashing the Project
 
 1. Clone the repository and navigate to the project directory:
@@ -214,7 +217,5 @@ To define which method to use, the user must modify the `web_server.h` file and 
    ```bash
    idf.py monitor
    ```
-
----
 
 This is a basic guide to get started with the project. Make sure to adjust the configurations as needed and explore the code to understand all the functionalities in detail.
