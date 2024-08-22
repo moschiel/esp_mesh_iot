@@ -1,6 +1,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -16,6 +17,7 @@
 #include "esp_wifi.h"
 #include "esp_mesh.h"
 #include "cJSON.h"
+#include "esp_mac.h"
 
 #include "web_server.h"
 #include "web_socket.h"
@@ -28,8 +30,9 @@
 
 static const char* TAG = "MESSAGES";
 extern int32_t requested_retry_offset;
+extern uint8_t STA_MAC_address[6];
 
-void mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver) {
+bool mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver) {
     // Buffer para armazenar as strings dos endereços MAC
     char node_addr_str[18];
     char parent_addr_str[18];
@@ -49,10 +52,12 @@ void mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], ui
     cJSON_AddStringToObject(root, "fw_ver", fw_ver); 
 
     // Converte o objeto JSON para string e salva no buffer
-    cJSON_PrintPreallocated(root, buf, buf_size, false);
+    bool ret = cJSON_PrintPreallocated(root, buf, buf_size, false);
 
     // Libera a memória usada pelo objeto JSON
     cJSON_Delete(root);
+
+    return ret;
 }
 
 bool process_msg_node_status(cJSON *root) {
@@ -91,6 +96,61 @@ bool process_msg_node_status(cJSON *root) {
     }
 
     return false;  // Retorna false se houver algum erro nos campos do JSON
+}
+
+bool mount_msg_get_wifi_config(char* buf, int buf_size) {
+// Get WiFi router credentials from NVS
+    char router_ssid[MAX_SSID_LEN] = {0};
+    char router_password[MAX_PASS_LEN] = {0};
+    nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
+
+    // Obtem as credenciais da rede mesh da NVS
+    uint8_t mesh_id[6];
+    char mesh_password[MAX_PASS_LEN] = {0};
+    nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
+
+    // Get IP address config
+    char router_ip[IP_ADDR_LEN] = {0};
+    char root_node_ip[IP_ADDR_LEN] = {0};
+    char netmask[IP_ADDR_LEN] = {0};
+    #if ENABLE_CONFIG_STATIC_IP
+    nvs_get_ip_config(router_ip, root_node_ip, netmask);
+    #endif
+
+    //Obtem ultimo fw url
+    char fw_url[100] = {0};
+    nvs_get_ota_fw_url(fw_url, sizeof(fw_url));
+
+    int required_size = snprintf(buf, buf_size,
+        "{"
+            "\"device_mac_addr\":\""MACSTR"\","
+            "\"router_ssid\":\"%s\","
+            "\"router_password\":\"%s\","
+            "\"mesh_id\":\""MESHSTR"\"," 
+            "\"mesh_password\":\"%s\","
+            "\"router_ip\":\"%s\","
+            "\"root_ip\":\"%s\","
+            "\"netmask\":\"%s\","
+            "\"is_connected\":%s,"
+            "\"fw_url\":\"%s\""
+        "}",
+        MAC2STR(STA_MAC_address),
+        router_ssid,
+        router_password,
+        MESH2STR(mesh_id),
+        mesh_password,
+        router_ip,
+        root_node_ip,
+        netmask,
+        is_mesh_parent_connected()? "true":"false",
+        fw_url
+    );
+
+    if(required_size >= buf_size) {
+        ESP_LOGE(TAG, "Fail to mount msg get_wifi_config");
+        return false;
+    }
+    return true;
 }
 
 bool process_msg_set_wifi_config(cJSON *json)
@@ -168,6 +228,16 @@ bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool is
     return true;
 }
 
+bool send_ws_msg_ota_status(char* msg, bool done, bool isError, uint8_t percent)
+{
+    char payload[1000];
+    if(mount_msg_ota_status(payload, sizeof(payload), msg, done, isError, percent)) {
+        add_ws_msg_to_tx_queue(payload);
+        return true;
+    }
+    return false;
+}
+
 void send_msg_ota_offset_err(uint32_t expected, uint32_t received) {
 
     // Cria o objeto JSON
@@ -225,7 +295,13 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
     static uint32_t expectedOffset = 0;
     esp_err_t err;
 
-    // Se é o primeiro pacote, iniciar a OTA
+    // Se receber pacote de uma versao que ja esta instalada, ignora
+    bool isSameFile = (strcmp(packet->version, CONFIG_APP_PROJECT_VER) == 0);
+    if(isSameFile) {
+        return;
+    }
+
+    // Se é o primeiro pacote, iniciar OTA
     if (packet->offset == 0) {
         expectedOffset = 0;
         
@@ -241,9 +317,7 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
             ESP_LOGE(TAG, "esp_ota_begin failed: %s", esp_err_to_name(err));
             goto process_fw_packet_end;
         }
-    } 
-    
-    if(ota_partition == NULL) {
+    } else if(ota_partition == NULL) {
         // Offset diferente de zero, mas nao foi inicializado OTA anteriomente
         //ESP_LOGE(TAG, "rcv offset != 0, but OTA is not initialized");
         return;
@@ -304,6 +378,7 @@ void process_msg_firmware_packet(firmware_packet_t *packet) {
 process_fw_packet_end:
     if(err != ESP_OK) {
         ota_partition = NULL;
+        expectedOffset = 0;
 
         ESP_LOGE(TAG, "OTA failed, update aborted...");
         ESP_LOGE(TAG, "fw packet, version: %s, offset: %lu, size: %lu, totalSize: %lu",

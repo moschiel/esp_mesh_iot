@@ -81,56 +81,15 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 static esp_err_t root_get_configs_handler(httpd_req_t *req) {
-    // Get WiFi router credentials from NVS
-    char router_ssid[MAX_SSID_LEN] = {0};
-    char router_password[MAX_PASS_LEN] = {0};
-    nvs_get_wifi_credentials(router_ssid, sizeof(router_ssid), router_password, sizeof(router_password));
-
-    // Obtem as credenciais da rede mesh da NVS
-    uint8_t mesh_id[6];
-    char mesh_password[MAX_PASS_LEN] = {0};
-    nvs_get_mesh_credentials(mesh_id, mesh_password, sizeof(mesh_password));
-
-    // Get IP address config
-    char router_ip[IP_ADDR_LEN] = {0};
-    char root_node_ip[IP_ADDR_LEN] = {0};
-    char netmask[IP_ADDR_LEN] = {0};
-    #if ENABLE_CONFIG_STATIC_IP
-    nvs_get_ip_config(router_ip, root_node_ip, netmask);
-    #endif
-
-    //Obtem ultimo fw url
-    char fw_url[100] = {0};
-    nvs_get_ota_fw_url(fw_url, sizeof(fw_url));
-
     char response[600];
-    sprintf(response, 
-        "{"
-            "\"device_mac_addr\":\""MACSTR"\","
-            "\"router_ssid\":\"%s\","
-            "\"router_password\":\"%s\","
-            "\"mesh_id\":\""MESHSTR"\"," 
-            "\"mesh_password\":\"%s\","
-            "\"router_ip\":\"%s\","
-            "\"root_ip\":\"%s\","
-            "\"netmask\":\"%s\","
-            "\"is_connected\":%s,"
-            "\"fw_url\":\"%s\""
-        "}",
-        MAC2STR(STA_MAC_address),
-        router_ssid,
-        router_password,
-        MESH2STR(mesh_id),
-        mesh_password,
-        router_ip,
-        root_node_ip,
-        netmask,
-        is_mesh_parent_connected()? "true":"false",
-        fw_url
-    );
+    if(mount_msg_get_wifi_config(response, sizeof(response))) {
+        httpd_resp_set_status(req, "200 OK");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send_str_chunk(req, response);
+    } else {
+        httpd_resp_set_status(req, "400 Bad Request");
+    }
 
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send_str_chunk(req, response);
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
     return ESP_OK;
 }
@@ -200,10 +159,15 @@ static esp_err_t mesh_list_data_handler(httpd_req_t *req)
     char* mesh_json_str = build_mesh_list_json();
 
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, mesh_json_str, strlen(mesh_json_str));
+    if(mesh_json_str != NULL) {
+        httpd_resp_set_status(req, "200 OK");
+        httpd_resp_send_str_chunk(req, mesh_json_str);
+        free(mesh_json_str);
+    } else {
+        httpd_resp_set_status(req, "400 Bad Request");
+        httpd_resp_send_str_chunk(req, "{\"nodes\":[]}");
+    }
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
-
-    if(mesh_json_str != NULL) free(mesh_json_str);
 
     return ESP_OK;
 }
@@ -240,10 +204,14 @@ static esp_err_t mesh_tree_data_handler(httpd_req_t *req)
     char* mesh_json_str = build_mesh_tree_json();
 
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, mesh_json_str, strlen(mesh_json_str));
+    if(mesh_json_str != NULL) {
+        httpd_resp_set_status(req, "200 OK");
+        httpd_resp_send_str_chunk(req, mesh_json_str);
+        free(mesh_json_str);
+    } else {
+        httpd_resp_set_status(req, "400 Bad Request");
+    }
     httpd_resp_send_chunk(req, NULL, 0); // Terminate the response
-
-    if(mesh_json_str != NULL) free(mesh_json_str);
 
     return ESP_OK;
 }
@@ -272,7 +240,7 @@ static esp_err_t ws_update_fw_handler(httpd_req_t *req)
             payload[ws_pkt.len] = '\0';
             ESP_LOGI(TAG, "Received packet with message: %s", ws_pkt.payload);
             if(!process_msg_fw_update_request(payload)) {
-                send_ws_ota_status("Fail to parse JSON", true, true, 0);
+                send_ws_msg_ota_status("Fail to parse JSON", true, true, 0);
             }
         }
     }

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <inttypes.h>
 #include "esp_chip_info.h"
 #include "esp_flash.h"
@@ -96,4 +97,3 @@ void httpd_resp_send_format_str_chunk(httpd_req_t *req, char *buffer, size_t buf
 
     httpd_resp_send_chunk(req, buffer, HTTPD_RESP_USE_STRLEN);
 }
-

@@ -73,17 +73,20 @@ void mesh_p2p_tx_task(void *arg)
             if(!esp_mesh_is_root())
             {
                 if((iteration_count % 10) == 0) { // reporta cada 10 segundos
-                    mesh_data.proto = MESH_PROTO_JSON;
-                    mount_msg_node_status((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer, CONFIG_APP_PROJECT_VER);
-                    mesh_data.size = strlen((char*)tx_buf) + 1;
+                    
+                    if(mount_msg_node_status((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer, CONFIG_APP_PROJECT_VER))
+                    {
+                        mesh_data.proto = MESH_PROTO_JSON;
+                        mesh_data.size = strlen((char*)tx_buf) + 1;
 
-                    err = esp_mesh_send(
-                        NULL,       // mesh_addr_t *to, (use NULL to send to root node)
-                        &mesh_data, // mesh_data_t *data           
-                        0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
-                        NULL,       // mesh_opt_t opt[]
-                        0           // int opt_count
-                    );
+                        err = esp_mesh_send(
+                            NULL,       // mesh_addr_t *to, (use NULL to send to root node)
+                            &mesh_data, // mesh_data_t *data           
+                            0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+                            NULL,       // mesh_opt_t opt[]
+                            0           // int opt_count
+                        );
+                    }
                 }
             }
 

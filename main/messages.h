@@ -22,9 +22,10 @@ typedef struct {
     uint8_t data[1024];
 } __attribute__((packed)) firmware_packet_t;
 
-void mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver);
+bool mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver);
+bool mount_msg_get_wifi_config(char* buf, int buf_size);
 bool mount_msg_ota_status(char* buf, int buf_size, char* msg, bool done, bool isError, uint8_t percent);
-
+bool send_ws_msg_ota_status(char* msg, bool done, bool isError, uint8_t percent);
 bool process_msg_node_status(cJSON *root);
 bool process_msg_set_wifi_config(cJSON *json);
 bool process_msg_fw_update_request(char* payload);
