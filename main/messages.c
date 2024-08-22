@@ -31,6 +31,8 @@
 static const char* TAG = "MESSAGES";
 extern int32_t requested_retry_offset;
 extern uint8_t STA_MAC_address[6];
+static const mesh_addr_t mesh_broadcast_addr = {.addr = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
+
 
 bool mount_msg_node_status(char* buf, int buf_size, uint8_t node_sta_addr[6], uint8_t parent_sta_addr[6], int layer, char* fw_ver) {
     // Buffer para armazenar as strings dos endereços MAC
@@ -241,33 +243,21 @@ bool send_ws_msg_ota_status(char* msg, bool done, bool isError, uint8_t percent)
 void send_msg_ota_offset_err(uint32_t expected, uint32_t received) {
 
     // Cria o objeto JSON
-    cJSON *root = cJSON_CreateObject();
+    cJSON *json = cJSON_CreateObject();
 
     // Adiciona os campos ao JSON
-    cJSON_AddNumberToObject(root, "msg_id", JSON_MSG_OTA_OFFSET_ERR);
-    cJSON_AddNumberToObject(root, "expected", expected);
-    cJSON_AddNumberToObject(root, "received", received);
+    cJSON_AddNumberToObject(json, "msg_id", JSON_MSG_OTA_OFFSET_ERR);
+    cJSON_AddNumberToObject(json, "expected", expected);
+    cJSON_AddNumberToObject(json, "received", received);
 
     // Converte o objeto JSON para string e salva no buffer
-    char buf[100] = {0};
-    cJSON_PrintPreallocated(root, buf, sizeof(buf), false);
+    char *jsonString = cJSON_PrintUnformatted(json);
+    mesh_root_json_msg(jsonString);
+    free(jsonString);
 
     // Libera a memória usada pelo objeto JSON
-    cJSON_Delete(root);
+    cJSON_Delete(json);
 
-    mesh_data_t mesh_data;
-    mesh_data.data = (uint8_t*)buf;
-    mesh_data.tos = MESH_TOS_P2P;
-    mesh_data.proto = MESH_PROTO_JSON;
-    mesh_data.size = strlen(buf) + 1;
-
-    esp_mesh_send(
-        NULL,       // mesh_addr_t *to, (use NULL to send to root node)
-        &mesh_data, // mesh_data_t *data           
-        0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
-        NULL,       // mesh_opt_t opt[]
-        0           // int opt_count
-    );
 }
 
 bool process_msg_ota_offset_err(cJSON *root) {
@@ -384,4 +374,70 @@ process_fw_packet_end:
         ESP_LOGE(TAG, "fw packet, version: %s, offset: %lu, size: %lu, totalSize: %lu",
             packet->version, packet->offset, packet->data_size, packet->total_size);
     }
+}
+
+// broadcast json msg to all nodes
+esp_err_t mesh_broadcast_json_msg(char* jsonString)
+{
+    if(jsonString == NULL) return ESP_FAIL;
+
+    mesh_data_t mesh_data;
+    mesh_data.data = (uint8_t*)jsonString;
+    mesh_data.tos = MESH_TOS_P2P;
+    mesh_data.proto = MESH_PROTO_JSON;
+    mesh_data.size = strlen(jsonString) + 1;
+
+    esp_err_t err = esp_mesh_send(
+        &mesh_broadcast_addr,       // mesh_addr_t *to, (use NULL to send to root node)
+        &mesh_data, // mesh_data_t *data           
+        MESH_DATA_P2P,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+        NULL,       // mesh_opt_t opt[]
+        0           // int opt_count
+    );
+
+    return err;
+}
+
+// broadcast bin msg to all nodes
+esp_err_t mesh_broadcast_bin_msg(uint8_t* buf, uint16_t size)
+{
+    if(buf == NULL) return ESP_FAIL;
+
+    mesh_data_t mesh_data;
+    mesh_data.data = buf;
+    mesh_data.tos = MESH_TOS_P2P;
+    mesh_data.proto = MESH_PROTO_BIN;
+    mesh_data.size = size;
+
+    esp_err_t err = esp_mesh_send(
+        &mesh_broadcast_addr,       // mesh_addr_t *to, (use NULL to send to root node)
+        &mesh_data, // mesh_data_t *data           
+        MESH_DATA_P2P,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+        NULL,       // mesh_opt_t opt[]
+        0           // int opt_count
+    );
+
+    return err;
+}
+
+// json msg to root node
+esp_err_t mesh_root_json_msg(char* jsonString)
+{
+    if(jsonString == NULL) return ESP_FAIL;
+
+    mesh_data_t mesh_data;
+    mesh_data.data = (uint8_t*)jsonString;
+    mesh_data.tos = MESH_TOS_P2P;
+    mesh_data.proto = MESH_PROTO_JSON;
+    mesh_data.size = strlen(jsonString) + 1;
+
+    esp_err_t err = esp_mesh_send(
+        NULL,       // mesh_addr_t *to, (use NULL to send to root node)
+        &mesh_data, // mesh_data_t *data           
+        MESH_DATA_P2P,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+        NULL,       // mesh_opt_t opt[]
+        0           // int opt_count
+    );
+
+    return err;
 }

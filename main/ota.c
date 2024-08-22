@@ -33,7 +33,6 @@ extern const uint8_t server_cert_pem_start[] asm("_binary_server_cert_pem_start"
 static const char *TAG = "OTA_MESH";
 static bool ota_running = false;
 static char ota_url[128];
-static const mesh_addr_t mesh_broadcast_addr = {.addr = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
 
 int32_t requested_retry_offset = -1;
 
@@ -99,16 +98,11 @@ static void distribute_firmware_to_children(ota_fw_info_t *ota_fw_info) {
             break;
         }
 
-        // Enviar pacote para os nós filhos
-        mesh_data_t data;
-        data.data = (uint8_t *)&packet;
-        data.size = sizeof(firmware_packet_t);
-        data.proto = MESH_PROTO_BIN;
-        data.tos = MESH_TOS_P2P;
-        
+        // Envia pacote para os nós filhos
         uint8_t retry = 0;
 fw_packet_retry:
-        err = esp_mesh_send(&mesh_broadcast_addr, &data, MESH_DATA_P2P, NULL, 0);
+        err = mesh_broadcast_bin_msg((uint8_t *)&packet, sizeof(firmware_packet_t));
+        
         if(err == ESP_ERR_MESH_QUEUE_FULL && retry++ < 5){
             ESP_LOGW(TAG, "mesh queue full, retry firmware transfer");
             vTaskDelay(pdMS_TO_TICKS(500));

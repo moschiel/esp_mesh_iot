@@ -133,7 +133,16 @@ static esp_err_t set_wifi_post_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
+    //aplica configuracoes
     if(process_msg_set_wifi_config(json)) {
+        if(is_mesh_parent_connected()) {
+            //se esta na rede mesh, faz broadcast
+            cJSON_AddNumberToObject(json, "msg_id", JSON_MSG_SET_WIFI_CONFIGS);
+            char *jsonString = cJSON_PrintUnformatted(json);
+            mesh_broadcast_json_msg(jsonString);
+            free(jsonString);
+        }
+
         // Send HTTP response with 200 OK
         httpd_resp_set_status(req, "200 OK");
         httpd_resp_send(req, NULL, 0);

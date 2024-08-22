@@ -37,8 +37,6 @@
  *                Variable Definitions
  *******************************************************/
 static const char *TAG = "MESH_NETWORK";
-static uint8_t tx_buf[TX_SIZE] = { 0 };
-static uint8_t rx_buf[RX_SIZE] = { 0 };
 static bool is_mesh_connected = false;
 static int mesh_layer = -1;
 static esp_netif_t *netif_sta = NULL;
@@ -61,10 +59,8 @@ extern uint8_t STA_MAC_address[6];
  *******************************************************/
 void mesh_p2p_tx_task(void *arg)
 {
+    static uint8_t tx_buf[TX_SIZE] = { 0 };
     esp_err_t err;
-    mesh_data_t mesh_data;
-    mesh_data.data = tx_buf;
-    mesh_data.tos = MESH_TOS_P2P;
     uint32_t iteration_count = 0;
     while (1) {
         if(is_mesh_connected) {
@@ -76,23 +72,9 @@ void mesh_p2p_tx_task(void *arg)
                     
                     if(mount_msg_node_status((char*)tx_buf, sizeof(tx_buf), STA_MAC_address, PARENT_STA_MESH_address.addr, mesh_layer, CONFIG_APP_PROJECT_VER))
                     {
-                        mesh_data.proto = MESH_PROTO_JSON;
-                        mesh_data.size = strlen((char*)tx_buf) + 1;
-
-                        err = esp_mesh_send(
-                            NULL,       // mesh_addr_t *to, (use NULL to send to root node)
-                            &mesh_data, // mesh_data_t *data           
-                            0,          // int flag, If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
-                            NULL,       // mesh_opt_t opt[]
-                            0           // int opt_count
-                        );
+                        err = mesh_root_json_msg((char*)tx_buf);
                     }
                 }
-            }
-
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "'esp_mesh_send' fail, msg_id:%i, heap:%" PRId32 "[err:0x%x, proto:%d, tos:%d]",
-                    JSON_MSG_NODE_STATUS, esp_get_minimum_free_heap_size(), err, mesh_data.proto, mesh_data.tos);
             }
         }
 
@@ -104,6 +86,7 @@ void mesh_p2p_tx_task(void *arg)
 
 void mesh_p2p_rx_task(void *arg)
 {
+    static uint8_t rx_buf[RX_SIZE] = { 0 };
     esp_err_t err;
     mesh_addr_t from;
     mesh_data_t mesh_data;
@@ -140,36 +123,41 @@ void mesh_p2p_rx_task(void *arg)
                 ESP_LOGI(TAG, "Recv from "MACSTR": %s", MAC2STR(from.addr), (char*)mesh_data.data);
             }
 
-            cJSON *root = cJSON_Parse((char*)mesh_data.data);
-            if(root == NULL) {
+            cJSON *json = cJSON_Parse((char*)mesh_data.data);
+            if(json == NULL) {
                 ESP_LOGE(TAG, "Fail to parse JSON");
                 continue;
             }
 
-            cJSON *msg_id_json = cJSON_GetObjectItem(root, "msg_id");
+            cJSON *msg_id_json = cJSON_GetObjectItem(json, "msg_id");
 
             bool process_fail = false;
             if(msg_id_json && cJSON_IsNumber(msg_id_json)) {
                 switch (msg_id_json->valueint)
                 {
-                case JSON_MSG_NODE_STATUS:
-                    if(esp_mesh_is_root()) {
-                        if(!process_msg_node_status(root)) {
-                            process_fail = true;
+                    case JSON_MSG_NODE_STATUS:
+                        if(esp_mesh_is_root()) {
+                            if(!process_msg_node_status(json)) {
+                                process_fail = true;
+                            }
+                        }    
+                    break;
+                    case JSON_MSG_OTA_OFFSET_ERR:
+                        if(esp_mesh_is_root()) {
+                            if(!process_msg_ota_offset_err(json)) {
+                                process_fail = true;
+                            }
                         }
-                    }    
-                break;
-                
-                case JSON_MSG_OTA_OFFSET_ERR:
-                    if(esp_mesh_is_root()) {
-                        if(!process_msg_ota_offset_err(root)) {
-                            process_fail = true;
+                    break;
+                    case JSON_MSG_SET_WIFI_CONFIGS:
+                        if(!esp_mesh_is_root()) {
+                            if(!process_msg_set_wifi_config(json)) {
+                                process_fail = true;
+                            } else {
+                                esp_restart(); //configuracoes aplicadas, reseta
+                            }
                         }
-                    }
-                break;
-                
-                default:
-                break;
+                    break;
                 }    
             }
 
@@ -178,7 +166,7 @@ void mesh_p2p_rx_task(void *arg)
             }
 
             // Libera a memória usada pelo objeto JSON
-            cJSON_Delete(root);
+            cJSON_Delete(json);
 
         }
     }

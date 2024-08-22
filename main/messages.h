@@ -7,6 +7,7 @@
 typedef enum {
     JSON_MSG_NODE_STATUS = 1,
     JSON_MSG_OTA_OFFSET_ERR = 2,
+    JSON_MSG_SET_WIFI_CONFIGS = 3,
 } JSON_MSG_ID_t;
 
 typedef enum {
@@ -31,5 +32,8 @@ bool process_msg_set_wifi_config(cJSON *json);
 bool process_msg_fw_update_request(char* payload);
 void process_msg_firmware_packet(firmware_packet_t *packet);
 bool process_msg_ota_offset_err(cJSON *root);
+esp_err_t mesh_broadcast_json_msg(char* jsonString);
+esp_err_t mesh_broadcast_bin_msg(uint8_t* buf, uint16_t size);
+esp_err_t mesh_root_json_msg(char* jsonString);
 
 #endif /* MAIN_MESSAGES_H_ */
